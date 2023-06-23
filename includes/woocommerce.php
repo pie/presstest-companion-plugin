@@ -46,7 +46,7 @@ function add_wc_query_vars( array $vars = array() ) {
  */
 function add_custom_my_account_tab( array $items = array() ) {
 
-    $items['pie-testing-platform'] = __( 'Tests', PIE_TESTING_PLATFORM_NAME );
+    $items['pie-testing-platform'] = __( 'Tests', 'pie-testing-platform' );
 	return $items;
 
 }
@@ -58,5 +58,7 @@ function add_custom_my_account_tab( array $items = array() ) {
  * @return void
  */
 function add_custom_tab_content() {
+
 	include_once PIE_TESTING_PLATFORM_FILE_PATH . 'templates/my-account/main.php';
+    
 }

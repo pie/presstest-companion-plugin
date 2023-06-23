@@ -1,6 +1,10 @@
 <?php
 /**
- * Currently plugin version.
+ * All required plugin definitions.
+ */
+
+/**
+ * Current plugin version.
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Update it as you release new versions.
  */
