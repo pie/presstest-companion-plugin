@@ -28,11 +28,17 @@ function enqueues_frontend() {
         foreach( glob( $file_path . 'js/*.js' ) as $file ) {
             $filename = substr( $file, strrpos( $file, '/' ) + 1 );
             wp_enqueue_script( $filename, $enqueue_path . 'js/' . $filename, array(), false, true );
+            wp_localize_script( $filename, 'my_account_app', array(
+                'user_id' => get_current_user_id(),
+                'domains' => get_user_meta( get_current_user_id(), '_pie_testing_domains', true ) ? get_user_meta( get_current_user_id(), '_pie_testing_domains', true ) : array(),
+            ));
         }
 
         foreach( glob( $file_path . 'css/*.css' ) as $file ) {
             $filename = substr( $file, strrpos( $file, '/' ) + 1 );
             wp_enqueue_style( $filename, $enqueue_path . 'css/' . $filename );
         }
+
+        wp_enqueue_script( 'wp-api' );
     }
 }
