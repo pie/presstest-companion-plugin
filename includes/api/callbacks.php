@@ -22,15 +22,13 @@ namespace PIE\TestingPlatform;
 function save_report_html( \WP_REST_Request $request ) {
 
     global $wpdb;
-    extract( $request->get_query_params() );
+    extract( $request->get_params() );
 
     $response = $wpdb->insert( $wpdb->prefix . 'pie_testing_platform_reports', array( 
         'domain' => $domain,
         'date'   => date( 'Y-m-d H:i:s' ),
         'report' => $report
     ));
-
-    //var_dump( 'here' );die();
     
     return 1 === $response ? true : false;
 

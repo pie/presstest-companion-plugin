@@ -10,13 +10,14 @@
  * @subpackage PIE\TestingPlatform/includes/api
  */
 
- namespace PIE\TestingPlatform;
+namespace PIE\TestingPlatform;
 
  function register_endpoints() {
 
     register_rest_route( 'pie-testing-platform/v1', 'report/', [
         'methods'  => 'POST',
         'callback' => __NAMESPACE__ . '\save_report_html',
+        'permission_callback' => function() { return true; },
         'args'     => [
             'domain' => [
                 'validate_callback' => function( $param, $request, $key ) { 
@@ -34,6 +35,7 @@
     register_rest_route( 'pie-testing-platform/v1', 'reports/', [
         'methods'             => 'GET',
         'callback'            => __NAMESPACE__ . '\get_report_html',
+        'permission_callback' => function() { return true; },
         'args'                => [
             'domain' => [
                 'validate_callback' => function( $param, $request, $key ) {
@@ -57,13 +59,13 @@ function register_metafields() {
                 ),
             ),
         ),
-        'auth_callback' => __return_true(),
+        'auth_callback' => function() { return true; },
     ]);
     register_meta( 'user', '_selected_domain', [
         'type'          => 'string',
         'single'        => true,
         'show_in_rest'  => true,
-        'auth_callback' => __return_true(),
+        'auth_callback' => function() { return true; },
     ]);
 }
 add_action( 'rest_api_init', __NAMESPACE__ . '\register_metafields' );

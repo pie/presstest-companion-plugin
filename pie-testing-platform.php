@@ -59,4 +59,4 @@ register_activation_hook( __FILE__, __NAMESPACE__ . '\activate_pie_testing_platf
  */
 require PIE_TESTING_PLATFORM_FILE_PATH . 'includes/loader.php';
 
-load_plugin();
+add_action( 'plugins_loaded', __NAMESPACE__ . '\load_plugin' );
