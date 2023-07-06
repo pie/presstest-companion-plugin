@@ -67,5 +67,18 @@ function register_metafields() {
         'show_in_rest'  => true,
         'auth_callback' => function() { return true; },
     ]);
+    register_meta( 'user', '_selected_tests', [
+        'type'         => 'array',
+        'single'       => true,
+        'show_in_rest' => array(
+            'schema' => array(
+                'type'  => 'array',
+                'items' => array(
+                    'type' => 'integer',
+                ),
+            ),
+        ),
+        'auth_callback' => function() { return true; },
+    ]);
 }
 add_action( 'rest_api_init', __NAMESPACE__ . '\register_metafields' );
