@@ -11,8 +11,6 @@ function Testing() {
     const [selectedDomain, setSelectedDomain]  = useState( window.my_account_app.selected_domain );
     // Domains loaded and updated as domain options for the select field
     const [domains, updateDomains]             = useState( window.my_account_app.domains );
-    // Are we saving the settings?
-    const [isSaving, setSavingStatus]          = useState( false );
     // Handlers for the selected test from given checkboxes
     const [availableTests, updateTests]        = useState( tests );
     // Handlers for the users selected tests
@@ -73,10 +71,7 @@ function Testing() {
      * 
      * @param {object} e event 
      */
-    const saveSettings = async ( e ) => {
-        e.preventDefault();
-        updateMessage( '' );
-        setSavingStatus( true );
+    const saveSettings = async () => {
 
         // Set up the Axios instance with interceptors
         const axiosInstance = axios.create();
@@ -103,18 +98,11 @@ function Testing() {
         
             // Response not 200
             if ( 200 != response.status ) {
-                console.log( response );
                 throw new Error( 'error' );
             }
 
-            // Updated metadata successfully
-            setSavingStatus( false );
-            updateMessage( window.my_account_app.settings_saved_message );
-
         } catch ( error ) {
-            // Error
-            setSavingStatus( false );
-            updateMessage( window.my_account_app.settings_error_message_intro + error.message + '.  ' + window.my_account_app.settings_generic_error_outro );
+            console.log( error.message );
         }
     };
 
@@ -152,6 +140,7 @@ function Testing() {
         e.preventDefault();
         updateMessage( '' );
         setTestingStatus( true );
+        saveSettings();
 
         try {
             const response = await axios.get(
@@ -181,9 +170,8 @@ function Testing() {
      * @todo move root to db and localise
      */
     useEffect(() => {
-        console.log( selectedTests );
         updateApiUrl( apiUrl => {
-            return 'http://212.71.232.30/TestSuite/api.php?url='+selectedDomain+'&tests='+selectedTests.join( ',' );
+            return 'https://212.71.232.30/TestSuite/api.php?url='+selectedDomain+'&tests='+selectedTests.join( ',' );
         });
     }, [selectedDomain, selectedTests]);
 
@@ -212,7 +200,7 @@ function Testing() {
                         <input type="url" name="new-domain" onChange={e => updateDomain(e.target.value)} value={domain} />
                         Add New Domain
                     </label>
-                    <button id="add-domain" onClick={e => addDomain( e )} disabled={isSaving}>Add</button>
+                    <button id="add-domain" onClick={e => addDomain( e )} disabled={isTesting}>Add</button>
                 </fieldset>
                 <fieldset>
                     <label>Select domain to test:
@@ -225,7 +213,7 @@ function Testing() {
                             ))}
                         </select>
                     </label>
-                    <button id="remove-domain" onClick={e => removeDomain( e )} disabled={isSaving}>Remove</button>
+                    <button id="remove-domain" onClick={e => removeDomain( e )} disabled={isTesting}>Remove</button>
                 </fieldset>
                 <fieldset>
                     { tests.map(({ name, value, checked }, index) => {
@@ -237,8 +225,7 @@ function Testing() {
                           );
                     }) }
                 </fieldset>
-                {isSaving ? <Spinner /> : <input type="submit" value="Save" /> }
-                {isTesting ? <Spinner /> : <input type="button" value="Run Tests" onClick={e => runTests()} /> }
+                {isTesting ? <Spinner /> : <input type="submit" value="Run Tests" onClick={e => runTests(e)} /> }
             </form>
         </div>
     );
