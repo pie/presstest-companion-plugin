@@ -20,7 +20,7 @@ function Testing() {
     // Are we running tests?
     const [isTesting, setTestingStatus]        = useState( false );
     // Notification error/message
-    const [message, updateMessage]             = useState( '' );
+    const [message, updateMessage]             = useState( { 'type' : 'success', 'message' : '' } );
     
     /**
      * Takes the URL from the input, checks if it already exists in the select options and adds it if it doesn't
@@ -29,15 +29,15 @@ function Testing() {
      */
     function addDomain( e ) {
         e.preventDefault();
-        updateMessage( '' );
+        updateMessage( {} );
         if( ! isValidUrl( domain ) ) {
-            updateMessage( window.my_account_app.domain_invalid_message );
+            updateMessage(  { 'type':'error', 'message':window.my_account_app.domain_invalid_message } );
         } else if ( domains.indexOf( domain ) > -1 ) {
-            updateMessage( window.my_account_app.domain_already_exists_message );
+            updateMessage( { 'type':'error', 'message':window.my_account_app.domain_already_exists_message } );
         } else {
             updateDomains( domains => [...domains, domain] );
             updateDomain( '' );
-            updateMessage( window.my_account_app.domain_added_message );
+            updateMessage( { 'type':'message', 'message':window.my_account_app.domain_added_message } );
         }
     };
 
@@ -48,10 +48,10 @@ function Testing() {
      */
     function removeDomain( e ) {
         e.preventDefault();
-        updateMessage( '' );
-        if ( '' == selectedDomain ) {
+        updateMessage( {} );
+        if ( '' === selectedDomain ) {
             // No domain selected
-            updateMessage( window.my_account_app.domain_not_selected_message );
+            updateMessage( { 'type':'error', 'message':window.my_account_app.domain_not_selected_message } );
         } else {
             updateDomains( domains => {
                 const index = domains.indexOf( selectedDomain );
@@ -60,7 +60,7 @@ function Testing() {
                 }
                 return domains;
             } );
-            updateMessage( window.my_account_app.domain_removed_message );
+            updateMessage( { 'type':'message', 'message':window.my_account_app.domain_removed_message } );
             setSelectedDomain('');
         }
     };
@@ -97,7 +97,7 @@ function Testing() {
             );
         
             // Response not 200
-            if ( 200 != response.status ) {
+            if ( 200 !== response.status ) {
                 throw new Error( 'error' );
             }
 
@@ -138,7 +138,7 @@ function Testing() {
      */
     const runTests = async ( e ) => {
         e.preventDefault();
-        updateMessage( '' );
+        updateMessage( {} );
         setTestingStatus( true );
         saveSettings();
 
@@ -150,18 +150,18 @@ function Testing() {
             console.log( response );
         
             // Response not 200
-            if ( 200 != response.status ) {
+            if ( 200 !== response.status ) {
                 throw new Error( 'Failed to run tests.' );
             }
 
             // Ran tests successfully
             setTestingStatus( false );
-            updateMessage( 'Tests ran' );
+            updateMessage( { 'type':'message', 'message':window.my_account_app.tests_run_message } );
 
         } catch ( error ) {
             // Error
             setTestingStatus( false );
-            updateMessage( 'tests error' );
+            updateMessage( { 'type':'error', 'message':error.message } );
         }
     };
 
@@ -191,8 +191,8 @@ function Testing() {
 
     return (
         <div className='content-wrap'>
-            { !! message && <div className='message-wrap'>
-                <p>{message}</p><span onClick={e => updateMessage('')}>X</span>
+            { !! message.message && <div className={'message-wrap woocommerce-'+message.type}>
+                <p>{message.message}</p><span className='close' onClick={e => updateMessage({})}>X</span>
             </div> }
             <form onSubmit={saveSettings}>
                 <fieldset>

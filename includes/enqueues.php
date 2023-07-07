@@ -37,10 +37,7 @@ function enqueues_frontend() {
                 'domain_added_message'            => __( 'Domain has been successfully added to your list.', 'pie-testing-platform' ),
                 'domain_not_selected_message'     => __( 'No domain selected.', 'pie-testing-platform' ),
                 'domain_removed_message'          => __( 'Selected domain has been successfully removed from your list.', 'pie-testing-platform' ),
-                'settings_saved_message'          => __( 'Your settings have been updated', 'pie-testing-platform' ),
-                'settings_error_message_intro'    => __( 'Your settings were not updated and the following message was returned: ', 'pie-testing-platform' ),
-                'settings_generic_error_outro'    => sprintf( __( 'If the problem persists please %scontact us%s.', 'pie-testing-platform' ), '<a href="#">', '</a>' ),
-                'settings_error_no_message_intro' => __( 'An unknown error occured and your settings were not updated.', 'pie-testing-platform' ),
+                'tests_run_message'               => __( 'Tests were run successfully, see your reports.', 'pie-testing-platform' ),
             ));
         }
 

@@ -3,6 +3,7 @@ import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import Testing from './components/Testing';
 import Reports from './components/Reports';
 import '../../../node_modules/react-tabs/style/react-tabs.scss';
+import '../../sass/apps/my-account-app.scss';
 
 function App() {
   return (
