@@ -5,47 +5,42 @@ function Results() {
     const [results, setResults]         = useState( [] );
     const [loading, setLoading]         = useState( true );
     const [currentPage, setCurrentPage] = useState( 1 );
-    const [totalPages, setTotalPages]   = useState( 0 );
+    const [totalPages, setTotalPages]   = useState( 1 );
 
-  useEffect(() => {
-     // Set up the Axios instance with interceptors
-     const axiosInstance = axios.create();
+    useEffect(() => {
+        // Set up the Axios instance with interceptors
+        const axiosInstance = axios.create();
 
-     // Add the interceptors to modify the request before sending
-     axiosInstance.interceptors.request.use(( config ) => {
-         // Modify the request config before sending
-         config.headers['X-WP-Nonce'] = window.wp.api.nonce; // Set the nonce header
+        // Add the interceptors to modify the request before sending
+        axiosInstance.interceptors.request.use(( config ) => {
+          // Modify the request config before sending
+          config.headers['X-WP-Nonce'] = window.wpApiSettings.nonce; // Set the nonce header
 
-         return config;
-     });
-    // Function to fetch the paginated results
-    const fetchResults = async () => {
-      try {
-        const response = await axiosInstance.get( window.wp.api.root + 'pie-testing-platform/v1/reports', {
-          params: {
-            page: currentPage, // Current page number
-            per_page: 10, // Number of results per page
-          },
+          return config;
         });
+        // Function to fetch the paginated results
+        const fetchResults = async () => {
+            try {
+                const response = await axiosInstance.get( window.wpApiSettings.root + 'pie-testing-platform/v1/reports' );
 
-        setResults( response.data.results );
-        setTotalPages( response.data.totalPages );
-        setLoading( false );
-      } catch ( error ) {
-        console.error( error );
-        setLoading( false );
-      }
-    };
+                console.log( response );
+                setResults( response.data );
+                setLoading( false );
+            } catch ( error ) {
+                console.error( error );
+                setLoading( false );
+            }
+        };
 
-    fetchResults();
+      fetchResults();
   }, [currentPage]);
 
   const handleNextPage = () => {
-    setCurrentPage((prevPage) => prevPage + 1);
+    setCurrentPage( prevPage => prevPage + 1 );
   };
 
   const handlePrevPage = () => {
-    setCurrentPage((prevPage) => prevPage - 1);
+    setCurrentPage( prevPage => prevPage - 1 );
   };
 
   return (
@@ -55,10 +50,10 @@ function Results() {
       ) : (
         <div>
           <ul>
-            {results.map((result) => (
+            { results.map( ( result ) => (
               <li key={result.id}>
-                <h3>{result.title}</h3>
-                <p>{result.description}</p>
+                <h3>{result.domain} - {result.date}</h3>
+                {result.report}
               </li>
             ))}
           </ul>

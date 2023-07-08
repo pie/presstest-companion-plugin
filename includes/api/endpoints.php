@@ -36,13 +36,6 @@ namespace PIE\TestingPlatform;
         'methods'             => 'GET',
         'callback'            => __NAMESPACE__ . '\get_report_html',
         'permission_callback' => function() { return true; },
-        'args'                => [
-            'domain' => [
-                'validate_callback' => function( $param, $request, $key ) {
-                    return wp_http_validate_url( $param );
-                }
-            ],
-        ],
     ]);
 }
 add_action( 'rest_api_init', __NAMESPACE__ . '\register_endpoints' );
