@@ -11,6 +11,7 @@ import {
 // Demo styles, see 'Styles' section below for some notes on use.
 import '../../../../node_modules/react-accessible-accordion/dist/fancy-example.css';
 
+// @todo implement pagination
 function Results() {
     const [results, setResults]         = useState( [] );
     const [loading, setLoading]         = useState( true );
@@ -53,6 +54,114 @@ function Results() {
     setCurrentPage( prevPage => prevPage - 1 );
   };
 
+  /**
+   * Build the report list from the given report JSON
+   * 
+   * @param {string} $report_json 
+   * @returns 
+   */
+  function get_report_list_item( $report_json ) {
+    const $report = JSON.parse( $report_json.report );
+    return <AccordionItem className={get_report_status( $report )}>
+      <AccordionItemHeading>
+        <AccordionItemButton>
+          {$report_json.domain} - {$report_json.date}
+        </AccordionItemButton>
+      </AccordionItemHeading>
+      <AccordionItemPanel>
+        <ul>
+          <li>Total tests: {$report.stats.tests}</li>
+          <li>Passed: {$report.stats.passes}</li>
+          <li>Failed: {$report.stats.failures}</li>
+          <li>Pending: {$report.stats.pending}</li>
+          { $report.results.map( ( $result ) => (
+              get_result_list_item( $result )
+          ))}
+        </ul>
+      </AccordionItemPanel>
+    </AccordionItem>
+  };
+
+  /**
+   * Get status for current report
+   * Returns failed if ANY tests failed
+   * 
+   * @param {object} $report 
+   * @returns 
+   */
+  function get_report_status( $report ) {
+    if ( $report.stats.failures > 0 ) {
+      return 'failed';
+    } else if ( $report.stats.pending > 0 ) {
+      return 'pending';
+    } else {
+      return 'passed';
+    }
+  }
+
+  /**
+   * Build suite results from the report info given
+   * 
+   * @param {object} $result 
+   * @returns 
+   */
+  function get_result_list_item( $result ) {
+    return <Accordion allowZeroExpanded allowMultipleExpanded>
+      { $result.suites.map( ( $suite ) => (
+        <AccordionItem className={get_suite_status( $suite )}>
+          <AccordionItemHeading>
+            <AccordionItemButton>
+              {$suite.title} ({$suite.tests.length})
+            </AccordionItemButton>
+          </AccordionItemHeading>
+          <AccordionItemPanel>
+            { $suite.tests.map( ( $test ) => (
+                get_test_result_item( $test )
+            ))}
+          </AccordionItemPanel>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  };
+
+  /**
+   * Get status for current suite
+   * Returns failed if ANY tests failed
+   * 
+   * @param {object} $suite 
+   * @returns 
+   */
+  function get_suite_status( $suite ) {
+    if ( $suite.failures.length > 0 ) {
+      return 'failed';
+    } else if ( $suite.pending.length > 0 ) {
+      return 'pending';
+    } else {
+      return 'passed';
+    }
+  }
+
+  /**
+   * Build result for given test
+   * 
+   * @param {object} $test 
+   * @returns 
+   */
+  function get_test_result_item( $test ) {
+    return <Accordion allowZeroExpanded allowMultipleExpanded>
+        <AccordionItem className={$test.state}>
+          <AccordionItemHeading>
+            <AccordionItemButton>
+              {$test.title} - {$test.state}
+            </AccordionItemButton>
+          </AccordionItemHeading>
+          <AccordionItemPanel>
+            {$test.code}
+          </AccordionItemPanel>
+        </AccordionItem>
+    </Accordion>
+  }
+
   return (
     <div>
       {loading ? (
@@ -61,16 +170,7 @@ function Results() {
         <div>
           <Accordion allowZeroExpanded allowMultipleExpanded>
             { results.map( ( result ) => (
-              <AccordionItem>
-                <AccordionItemHeading>
-                  <AccordionItemButton>
-                    {result.domain} - {result.date}
-                  </AccordionItemButton>
-                </AccordionItemHeading>
-                <AccordionItemPanel>
-                  {result.report}
-                </AccordionItemPanel>
-              </AccordionItem>
+              get_report_list_item( result )
             ))}
           </Accordion>
           <div>

@@ -7,4 +7,18 @@
             cursor: pointer;
         }
     }
+    .accordion {
+        .passed {
+            border-left: 3px solid greenyellow;
+        }
+        .failed {
+            border-left: 3px solid red;
+        }
+        .pending {
+            border-left: 3px solid orange;
+        }
+        .accordion__heading {
+            overflow: hidden;
+        }
+    }
 }
