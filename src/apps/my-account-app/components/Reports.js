@@ -71,9 +71,15 @@ function Results() {
       <AccordionItemPanel>
         <ul>
           <li>Total tests: {$report.stats.tests}</li>
-          <li>Passed: {$report.stats.passes}</li>
-          <li>Failed: {$report.stats.failures}</li>
-          <li>Pending: {$report.stats.pending}</li>
+          {$report.stats.passes > 0 && (
+            <li >Passed: {$report.stats.passes}</li>
+          )}
+          {$report.stats.failures > 0 && (
+            <li >Failed: {$report.stats.failures}</li>
+          )}
+          {$report.stats.pending > 0 && (
+            <li >Pending: {$report.stats.pending}</li>
+          )}
           { $report.results.map( ( $result ) => (
               get_result_list_item( $result )
           ))}
