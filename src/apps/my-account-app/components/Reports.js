@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionItemHeading,
+  AccordionItemButton,
+  AccordionItemPanel,
+} from 'react-accessible-accordion';
+
+// Demo styles, see 'Styles' section below for some notes on use.
+import '../../../../node_modules/react-accessible-accordion/dist/fancy-example.css';
 
 function Results() {
     const [results, setResults]         = useState( [] );
@@ -49,14 +59,20 @@ function Results() {
         <p>Loading...</p>
       ) : (
         <div>
-          <ul>
+          <Accordion allowZeroExpanded allowMultipleExpanded>
             { results.map( ( result ) => (
-              <li key={result.id}>
-                <h3>{result.domain} - {result.date}</h3>
-                {result.report}
-              </li>
+              <AccordionItem>
+                <AccordionItemHeading>
+                  <AccordionItemButton>
+                    {result.domain} - {result.date}
+                  </AccordionItemButton>
+                </AccordionItemHeading>
+                <AccordionItemPanel>
+                  {result.report}
+                </AccordionItemPanel>
+              </AccordionItem>
             ))}
-          </ul>
+          </Accordion>
           <div>
             {currentPage > 1 && (
               <button onClick={handlePrevPage}>Previous</button>
