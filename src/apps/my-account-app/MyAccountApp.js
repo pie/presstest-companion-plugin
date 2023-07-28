@@ -15,7 +15,8 @@ function App() {
           <Tab>Reports</Tab>
         </TabList>
 
-        <TabPanel>
+        {/* Force rendering here to maintain state for user options when switching between tabs */}
+        <TabPanel forceRender>
           <Testing />
         </TabPanel>
         <TabPanel>

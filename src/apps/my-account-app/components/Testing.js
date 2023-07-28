@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import useOnChangeEffect from '../hooks/useOnChangeEffect';
 import axios from 'axios';
 import { tests } from "../data/tests";
 import validator from 'validator'
@@ -140,7 +141,6 @@ function Testing() {
         e.preventDefault();
         updateMessage( {} );
         setTestingStatus( true );
-        saveSettings();
 
         try {
             const response = await axios.get(
@@ -176,6 +176,13 @@ function Testing() {
     }, [selectedDomain, selectedTests]);
 
     /**
+     * Whenever the given options are updated, update the entries in the users metadata
+     */
+    useOnChangeEffect( () => {
+        saveSettings();
+    }, [domains, selectedDomain, selectedTests])
+
+    /**
      * Checks given URL is valid format
      * 
      * @param {string} url 
@@ -194,7 +201,7 @@ function Testing() {
             { !! message.message && <div className={'message-wrap woocommerce-'+message.type}>
                 <p>{message.message}</p><span className='close' onClick={e => updateMessage({})}>X</span>
             </div> }
-            <form onSubmit={saveSettings}>
+            <form>
                 <fieldset>
                     <label>
                         <input type="url" name="new-domain" onChange={e => updateDomain(e.target.value)} value={domain} />
