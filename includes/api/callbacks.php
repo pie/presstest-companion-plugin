@@ -25,9 +25,11 @@ function save_report_html( \WP_REST_Request $request ) {
     extract( $request->get_params() );
 
     $response = $wpdb->insert( $wpdb->prefix . 'pie_testing_platform_reports', array( 
-        'domain' => $domain,
-        'date'   => date( 'Y-m-d H:i:s' ),
-        'report' => $report
+        'domain'  => $domain,
+        'browser' => $browser,
+        'user_id' => $user_id,
+        'date'    => date( 'Y-m-d H:i:s' ),
+        'report'  => $report
     ));
     
     return 1 === $response ? true : false;
@@ -35,7 +37,7 @@ function save_report_html( \WP_REST_Request $request ) {
 }
 
  /**
-  * Save report HTML into the database
+  * Get all reports for current user from database
   *
   * @since    1.0.0
   * @param \WP_REST_Request $request
@@ -45,12 +47,9 @@ function save_report_html( \WP_REST_Request $request ) {
 
     global $wpdb;
 
-    // Retrieve users domains and convert array to csv of values (each domain wrapped in quotes for query)
-    $domains = get_user_meta( get_current_user_id(), '_domains', true ) ? get_user_meta( get_current_user_id(), '_domains', true ) : array();
-    array_walk( $domains, fn( &$x ) => $x = "'$x'" );
-    $domains = implode( ',', $domains );
+    $user_id = get_current_user_id();
     $table   = $wpdb->prefix . 'pie_testing_platform_reports';
-    $sql     = $wpdb->prepare( "SELECT * FROM $table WHERE domain IN ($domains) ORDER BY date DESC" );
+    $sql     = $wpdb->prepare( "SELECT * FROM $table WHERE user_id = $user_id ORDER BY date DESC" );
 
     $wpdb->show_errors( true );
     $response = $wpdb->get_results( $sql, 'OBJECT' );

@@ -171,7 +171,7 @@ function Testing() {
      */
     useEffect(() => {
         updateApiUrl( apiUrl => {
-            return 'https://212.71.232.30/TestSuite/api.php?url='+selectedDomain+'&tests='+selectedTests.join( ',' );
+            return 'https://212.71.232.30/TestSuite/api.php?url='+selectedDomain+'&user_id='+window.my_account_app.user_id+'&tests='+selectedTests.join( ',' );
         });
     }, [selectedDomain, selectedTests]);
 

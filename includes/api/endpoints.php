@@ -24,6 +24,16 @@ namespace PIE\TestingPlatform;
                     return wp_http_validate_url( $param );
                 }
             ],
+            'browser' => [
+                'validate_callback' => function( $param, $request, $key ) {
+                    return is_string( $param );
+                }
+            ],
+            'user_id' => [
+                'validate_callback' => function( $param, $request, $key ) {
+                    return is_numeric( $param );
+                }
+            ],
             'report' => [
                 'validate_callback' => function( $param, $request, $key ) {
                     return is_string( $param );
@@ -67,7 +77,7 @@ function register_metafields() {
             'schema' => array(
                 'type'  => 'array',
                 'items' => array(
-                    'type' => 'integer',
+                    'type' => 'string',
                 ),
             ),
         ),

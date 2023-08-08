@@ -29,6 +29,7 @@ function enqueues_frontend() {
             $filename = substr( $file, strrpos( $file, '/' ) + 1 );
             wp_enqueue_script( $filename, $enqueue_path . 'js/' . $filename, array(), false, true );
             wp_localize_script( $filename, 'my_account_app', array(
+                'user_id'                         => get_current_user_id(),
                 'domains'                         => get_user_meta( get_current_user_id(), '_domains', true ) ? get_user_meta( get_current_user_id(), '_domains', true ) : array(),
                 'selected_domain'                 => get_user_meta( get_current_user_id(), '_selected_domain', true ) ? get_user_meta( get_current_user_id(), '_selected_domain', true ) : '',
                 'selected_tests'                  => get_user_meta( get_current_user_id(), '_selected_tests', true ) ? get_user_meta( get_current_user_id(), '_selected_tests', true ) : array(),

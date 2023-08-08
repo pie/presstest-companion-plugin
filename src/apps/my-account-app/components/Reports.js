@@ -112,6 +112,9 @@ function Results() {
    * @returns 
    */
   function get_result_list_item( $result ) {
+    if ( ! $result.suites ) {
+      return;
+    }
     return <Accordion allowZeroExpanded allowMultipleExpanded>
       { $result.suites.map( ( $suite ) => (
         <AccordionItem className={get_suite_status( $suite )}>
