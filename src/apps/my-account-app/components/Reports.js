@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios, { all } from 'axios';
 import {
   Accordion,
   AccordionItem,
@@ -11,45 +11,55 @@ import {
 // Demo styles, see 'Styles' section below for some notes on use.
 import '../../../../node_modules/react-accessible-accordion/dist/fancy-example.css';
 
-// @todo implement pagination
 function Results() {
-    const [results, setResults]         = useState( [] );
-    const [loading, setLoading]         = useState( true );
-    const [currentPage, setCurrentPage] = useState( 1 );
-    const [totalPages, setTotalPages]   = useState( 1 );
+  const [allResults, setAllResults]         = useState( [] );
+  const [currentResults, setCurrentResults] = useState( [] );
+  const [loading, setLoading]               = useState( true );
+  const [currentPage, setCurrentPage]       = useState( 1 );
+  const [totalPages, setTotalPages]         = useState( 1 );
 
-    useEffect(() => {
-        // Set up the Axios instance with interceptors
-        const axiosInstance = axios.create();
+  useEffect(() => {
+    setLoading( true );
+    // Set up the Axios instance with interceptors
+    const axiosInstance = axios.create();
 
-        // Add the interceptors to modify the request before sending
-        axiosInstance.interceptors.request.use(( config ) => {
-          // Modify the request config before sending
-          config.headers['X-WP-Nonce'] = window.wpApiSettings.nonce; // Set the nonce header
+    // Add the interceptors to modify the request before sending
+    axiosInstance.interceptors.request.use(( config ) => {
+      // Modify the request config before sending
+      config.headers['X-WP-Nonce'] = window.wpApiSettings.nonce; // Set the nonce header
 
-          return config;
-        });
-        // Function to fetch the paginated results
-        const fetchResults = async () => {
-            try {
-                const response = await axiosInstance.get( window.wpApiSettings.root + 'pie-testing-platform/v1/reports' );
+      return config;
+    });
+    // Get all reports from the API
+    const fetchResults = async () => {
+        try {
+            const response = await axiosInstance.get( window.wpApiSettings.root + 'pie-testing-platform/v1/reports' );
 
-                console.log( response );
-                setResults( response.data );
-                setLoading( false );
-            } catch ( error ) {
-                console.error( error );
-                setLoading( false );
-            }
-        };
+            console.log( response );
+            setAllResults( response.data );
+            setTotalPages( response.data.length / 10 );
+            setCurrentResults( response.data.slice( 0, 10 ) );
+            setLoading( false );
+        } catch ( error ) {
+            console.error( error );
+            setLoading( false );
+        }
+    };
 
-      fetchResults();
+    fetchResults();  
+  }, [] );
+
+  // When the current page changes, update the current results
+  useEffect(() => {
+    setCurrentResults( allResults.slice( ( currentPage - 1 ) * 10, currentPage * 10 ) );
   }, [currentPage]);
 
+  // Next page clicked, update the current page
   const handleNextPage = () => {
     setCurrentPage( prevPage => prevPage + 1 );
   };
 
+  // Previous page clicked, update the current page
   const handlePrevPage = () => {
     setCurrentPage( prevPage => prevPage - 1 );
   };
@@ -65,7 +75,7 @@ function Results() {
     return <AccordionItem className={get_report_status( $report )}>
       <AccordionItemHeading>
         <AccordionItemButton>
-          {$report_json.domain} - {$report_json.date}
+          {$report_json.domain} ({$report_json.browser}) - {$report_json.date}
         </AccordionItemButton>
       </AccordionItemHeading>
       <AccordionItemPanel>
@@ -178,7 +188,7 @@ function Results() {
       ) : (
         <div>
           <Accordion allowZeroExpanded allowMultipleExpanded>
-            { results.map( ( result ) => (
+            { currentResults.map( ( result ) => (
               get_report_list_item( result )
             ))}
           </Accordion>
