@@ -151,12 +151,12 @@ function Testing() {
         
             // Response not 200
             if ( 200 !== response.status ) {
-                throw new Error( 'Failed to run tests.' );
+                throw new Error( response.status_message );
             }
 
             // Ran tests successfully
             setTestingStatus( false );
-            updateMessage( { 'type':'message', 'message':window.my_account_app.tests_run_message } );
+            updateMessage( { 'type':'message', 'message':response.status_message } );
 
         } catch ( error ) {
             // Error
