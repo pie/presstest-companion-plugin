@@ -33,7 +33,7 @@ function enqueues_frontend() {
                 'domains'                         => get_user_meta( get_current_user_id(), '_domains', true ) ? get_user_meta( get_current_user_id(), '_domains', true ) : array(),
                 'selected_domain'                 => get_user_meta( get_current_user_id(), '_selected_domain', true ) ? get_user_meta( get_current_user_id(), '_selected_domain', true ) : '',
                 'selected_tests'                  => get_user_meta( get_current_user_id(), '_selected_tests', true ) ? get_user_meta( get_current_user_id(), '_selected_tests', true ) : array(),
-                'domain_already_exists_message'   => __( 'Domain has already been added.  Please select it from the dropdown and click save to activate it.', 'pie-testing-platform' ),
+                'domain_already_exists_message'   => __( 'Domain has already been added.  Please select it from the dropdown to use it for testing.', 'pie-testing-platform' ),
                 'domain_invalid_message'          => __( 'Domain is not a valid URL.', 'pie-testing-platform' ),
                 'domain_added_message'            => __( 'Domain has been successfully added to your list.', 'pie-testing-platform' ),
                 'domain_not_selected_message'     => __( 'No domain selected.', 'pie-testing-platform' ),
