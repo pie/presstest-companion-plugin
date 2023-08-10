@@ -161,7 +161,7 @@ function Testing() {
         } catch ( error ) {
             // Error
             setTestingStatus( false );
-            updateMessage( { 'type':'error', 'message':error.message } );
+            updateMessage( { 'type':'error', 'message':error.message + ': See console for more information' } );
         }
     };
 
@@ -199,18 +199,17 @@ function Testing() {
     return (
         <div className='content-wrap'>
             { !! message.message && <div className={'message-wrap woocommerce-'+message.type}>
-                <p>{message.message}</p><span className='close' onClick={e => updateMessage({})}>X</span>
+                <p>{message.message}</p><i className='close dashicons dashicons-dismiss' onClick={e => updateMessage({})}></i>
             </div> }
             <form>
                 <fieldset>
-                    <label>
+                    <label>Add Domain
                         <input type="url" name="new-domain" onChange={e => updateDomain(e.target.value)} value={domain} />
-                        Add New Domain
                     </label>
                     <button id="add-domain" onClick={e => addDomain( e )} disabled={isTesting}>Add</button>
                 </fieldset>
                 <fieldset>
-                    <label>Select domain to test:
+                    <label>Select domain to test
                         <select name="domains" value={selectedDomain} onChange={e => setSelectedDomain(e.target.value)}>
                             <option value="">Select a Domain...</option>
                             {domains.map( currentDomain => (

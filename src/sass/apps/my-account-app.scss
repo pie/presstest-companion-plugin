@@ -1,10 +1,28 @@
 #my-account-app {
+    .content-wrap {
+        label {
+            margin-right: 1rem;
+        }
+        fieldset {
+            padding: 1rem;
+            input[type="url"], select {
+                margin-left: 1rem;
+            }
+        }
+        input[type="submit"] {
+            margin-top: 1rem;
+        }
+    }
     .message-wrap {
+        margin-bottom: 1rem;
         .close {
             position: absolute;
-            top: 5px;
-            right: 10px;
+            top: 0.5rem;
+            right: 1rem;
             cursor: pointer;
+        }
+        &.woocommerce-error {
+            border-top-color: #f44336;
         }
     }
     .accordion {
@@ -21,6 +39,15 @@
             overflow: hidden;
         }
     }
+    .loading-spinner {
+        width: 30px;
+        height: 30px;
+        border: 10px solid #f3f3f3; /* Light grey */
+        border-top: 10px solid #383636; /* Black */
+        border-radius: 50%;
+        animation: spinner 1.5s linear infinite;
+        margin-top: 1rem;
+    }
     @keyframes spinner {
         0% {
             transform: rotate(0deg);
@@ -28,13 +55,5 @@
         100% {
             transform: rotate(360deg);
         }
-    }
-    .loading-spinner {
-        width: 50px;
-        height: 50px;
-        border: 10px solid #f3f3f3; /* Light grey */
-        border-top: 10px solid #383636; /* Black */
-        border-radius: 50%;
-        animation: spinner 1.5s linear infinite;
     }
 }

@@ -47,6 +47,7 @@ function enqueues_frontend() {
             wp_enqueue_style( $filename, $enqueue_path . 'css/' . $filename );
         }
 
+        wp_enqueue_style( 'dashicons' );
         wp_enqueue_script( 'wp-api' );
     }
 }
