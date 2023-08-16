@@ -27,7 +27,7 @@ function enqueues_frontend() {
         
         foreach( glob( $file_path . 'js/*.js' ) as $file ) {
             $filename = substr( $file, strrpos( $file, '/' ) + 1 );
-            wp_enqueue_script( $filename, $enqueue_path . 'js/' . $filename, array(), false, true );
+            wp_enqueue_script( $filename, $enqueue_path . 'js/' . $filename, array(), filemtime( $file_path . 'js/' . $filename ), true );
             wp_localize_script( $filename, 'my_account_app', array(
                 'user_id'                         => get_current_user_id(),
                 'user_settings'                   => get_user_meta( get_current_user_id(), '_presstest_settings', true ) ? get_user_meta( get_current_user_id(), '_presstest_settings', true ) : array(),
