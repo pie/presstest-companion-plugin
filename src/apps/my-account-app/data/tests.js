@@ -2,11 +2,24 @@ export const tests = [
     {
         'name': 'Wordpress Core',
         'value': 'wordpress-core',
-        'checked': window.my_account_app.selected_tests.includes( 'wordpress-core' ),
+        'checked': user_has_selected_test( 'wordpress-core' ),
     },
     {
         'name': 'Nature Studio',
         'value': 'nature-studio',
-        'checked': window.my_account_app.selected_tests.includes( 'nature-studio' ),
+        'checked': user_has_selected_test( 'nature-studio' ),
     }
 ]
+
+/**
+ * Checks if the given test is selected by the user based on their user metadata
+ * 
+ * @param {string} test 
+ * @returns 
+ */
+function user_has_selected_test( test ) {
+    if ( window.my_account_app.user_settings.selected_tests === undefined ) {
+        return false;
+    }
+    return window.my_account_app.user_settings.selected_tests.includes( test );
+}

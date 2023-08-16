@@ -51,34 +51,26 @@ namespace PIE\TestingPlatform;
 add_action( 'rest_api_init', __NAMESPACE__ . '\register_endpoints' );
 
 function register_metafields() {
-    register_meta( 'user', '_domains', [
-        'type'         => 'array',
+    register_meta( 'user', '_presstest_settings', [
+        'type'         => 'object',
         'single'       => true,
         'show_in_rest' => array(
             'schema' => array(
-                'type'  => 'array',
-                'items' => array(
-                    'type' => 'string',
-                ),
-            ),
-        ),
-        'auth_callback' => function() { return true; },
-    ]);
-    register_meta( 'user', '_selected_domain', [
-        'type'          => 'string',
-        'single'        => true,
-        'show_in_rest'  => true,
-        'auth_callback' => function() { return true; },
-    ]);
-    register_meta( 'user', '_selected_tests', [
-        'type'         => 'array',
-        'single'       => true,
-        'show_in_rest' => array(
-            'schema' => array(
-                'type'  => 'array',
-                'items' => array(
-                    'type' => 'string',
-                ),
+                'type'       => 'object',
+                'properties' => array(
+                    'domains'          => array(
+                        'type' => 'array',
+                    ),
+                    'selected_domain'  => array(
+                        'type' => 'string',
+                    ),
+                    'selected_tests'   => array(
+                        'type' => 'array',
+                    ),
+                    'selected_browsers' => array(
+                        'type' => 'array',
+                    ),
+                 ),
             ),
         ),
         'auth_callback' => function() { return true; },

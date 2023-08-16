@@ -2,26 +2,34 @@ import React, { useEffect, useState } from 'react';
 import useOnChangeEffect from '../hooks/useOnChangeEffect';
 import axios from 'axios';
 import { tests } from "../data/tests";
+import { browsers } from "../data/browsers";
 import validator from 'validator'
 import Spinner from './Spinner';
 
+const defaultSelectedDomain = window.my_account_app.user_settings.selected_domain ? window.my_account_app.user_settings.selected_domain : '';
+const defaultDomains        = window.my_account_app.user_settings.domains ? window.my_account_app.user_settings.domains : [];
+
 function Testing() {
     // Handlers for the domain in the input field
-    const [domain, updateDomain]               = useState( '' );
+    const [domain, updateDomain]                     = useState( '' );
     // Handlers for the selected domain in the select field
-    const [selectedDomain, setSelectedDomain]  = useState( window.my_account_app.selected_domain );
+    const [selectedDomain, setSelectedDomain]        = useState( defaultSelectedDomain );
     // Domains loaded and updated as domain options for the select field
-    const [domains, updateDomains]             = useState( window.my_account_app.domains );
+    const [domains, updateDomains]                   = useState( defaultDomains );
     // Handlers for the selected test from given checkboxes
-    const [availableTests, updateTests]        = useState( tests );
+    const [availableTests, updateTests]              = useState( tests );
     // Handlers for the users selected tests
-    const [selectedTests, updateSelectedTests] = useState( [] );
+    const [selectedTests, updateSelectedTests]       = useState( [] );
+    // Handlers for the selected browsers from given checkboxes
+    const [availableBrowsers, updateBrowsers]        = useState( browsers );
+    // Handlers for the users selected browsers
+    const [selectedBrowsers, updateSelectedBrowsers] = useState( [] );
     // URL for the test suite (populated with useEffect hook)
-    const [apiUrl, updateApiUrl]               = useState( '' );
+    const [apiUrl, updateApiUrl]                     = useState( '' );
     // Are we running tests?
-    const [isTesting, setTestingStatus]        = useState( false );
+    const [isTesting, setTestingStatus]              = useState( false );
     // Notification error/message
-    const [message, updateMessage]             = useState( { 'type' : 'success', 'message' : '' } );
+    const [message, updateMessage]                   = useState( { 'type' : 'success', 'message' : '' } );
     
     /**
      * Takes the URL from the input, checks if it already exists in the select options and adds it if it doesn't
@@ -90,9 +98,12 @@ function Testing() {
             const response = await axiosInstance.post(
                 window.wpApiSettings.root + 'wp/v2/users/me', {
                     'meta' : {
-                        '_selected_domain' : selectedDomain,
-                        '_domains': domains,
-                        '_selected_tests': selectedTests
+                        '_presstest_settings' : {
+                            'domains' : domains,
+                            'selected_domain' : selectedDomain,
+                            'selected_tests' : selectedTests,
+                            'selected_browsers' : selectedBrowsers,
+                        }
                     }
                 }
             );
@@ -131,6 +142,31 @@ function Testing() {
             }).map( a => a.value );
         } );
     }, [availableTests]);
+
+    /**
+     * Fires when user updates checkboxes to select browsers
+     * Sets the checked status within the availableBrowsers array
+     * 
+     * @param {int} index 
+     */
+    function handleBrowserUpdate( index ) {
+        updateBrowsers( availableBrowsers => {
+            availableBrowsers[index].checked = ! availableBrowsers[index].checked;
+            return [...availableBrowsers];
+        } );
+    }
+
+    /**
+     * Updates the users selected browsers based on their checkboxes
+     * Fires once on load and each time availableBrowsers is updated (when checkboxes are changed)
+     */
+    useEffect(() => {
+        updateSelectedBrowsers( selectedBrowsers => {
+            return availableBrowsers.filter( function( obj ) {
+                return obj.checked;
+            }).map( a => a.value );
+        } );
+    }, [availableBrowsers]);
 
     /**
      * Send request to testing server to run selected tests for the selected domain
@@ -180,7 +216,7 @@ function Testing() {
      */
     useOnChangeEffect( () => {
         saveSettings();
-    }, [domains, selectedDomain, selectedTests])
+    }, [domains, selectedDomain, selectedTests, selectedBrowsers])
 
     /**
      * Checks given URL is valid format
@@ -226,6 +262,16 @@ function Testing() {
                         return (
                             <label>
                                 <input type="checkbox" name={value} value={value} onChange={e => handleTestUpdate(index)} checked={checked} />
+                                {name}
+                            </label>
+                          );
+                    }) }
+                </fieldset>
+                <fieldset>
+                    { browsers.map(({ name, value, checked }, index) => {
+                        return (
+                            <label>
+                                <input type="checkbox" name={value} value={value} onChange={e => handleBrowserUpdate(index)} checked={checked} />
                                 {name}
                             </label>
                           );
