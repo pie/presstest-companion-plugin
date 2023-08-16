@@ -245,7 +245,6 @@ function Testing() {
                 <fieldset>
                     <label>Select browser to run tests in:
                         <select name="browsers" value={selectedBrowser} onChange={e => setSelectedBrowser(e.target.value)}>
-                            <option value="">Select a Browser...</option>
                             {browsers.map( currentBrowser => (
                                 <option key={currentBrowser} value={currentBrowser}>
                                     {currentBrowser}
