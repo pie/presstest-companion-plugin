@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import useOnChangeEffect from '../hooks/useOnChangeEffect';
 import axios from 'axios';
 import { tests } from "../data/tests";
-import { browsers } from "../data/browsers";
 import validator from 'validator'
 import Spinner from './Spinner';
 
-const defaultSelectedDomain = window.my_account_app.user_settings.selected_domain ? window.my_account_app.user_settings.selected_domain : '';
-const defaultDomains        = window.my_account_app.user_settings.domains ? window.my_account_app.user_settings.domains : [];
+const defaultSelectedDomain  = window.my_account_app.user_settings.selected_domain ? window.my_account_app.user_settings.selected_domain : '';
+const defaultDomains         = window.my_account_app.user_settings.domains ? window.my_account_app.user_settings.domains : [];
+const defaultSelectedBrowser = window.my_account_app.user_settings.selected_browser ? window.my_account_app.user_settings.selected_browser : '';
 
 function Testing() {
     // Handlers for the domain in the input field
@@ -20,10 +20,10 @@ function Testing() {
     const [availableTests, updateTests]              = useState( tests );
     // Handlers for the users selected tests
     const [selectedTests, updateSelectedTests]       = useState( [] );
-    // Handlers for the selected browsers from given checkboxes
-    const [availableBrowsers, updateBrowsers]        = useState( browsers );
-    // Handlers for the users selected browsers
-    const [selectedBrowsers, updateSelectedBrowsers] = useState( [] );
+    // Handlers for the users selected browser
+    const [selectedBrowser, setSelectedBrowser]      = useState( defaultSelectedBrowser );
+    // Handlers for the selected browser in the select field
+    const [browsers, updateBrowsers]                 = useState( [ 'chrome', 'firefox', 'safari' ] );
     // URL for the test suite (populated with useEffect hook)
     const [apiUrl, updateApiUrl]                     = useState( '' );
     // Are we running tests?
@@ -102,7 +102,7 @@ function Testing() {
                             'domains' : domains,
                             'selected_domain' : selectedDomain,
                             'selected_tests' : selectedTests,
-                            'selected_browsers' : selectedBrowsers,
+                            'selected_browser' : selectedBrowser,
                         }
                     }
                 }
@@ -144,31 +144,6 @@ function Testing() {
     }, [availableTests]);
 
     /**
-     * Fires when user updates checkboxes to select browsers
-     * Sets the checked status within the availableBrowsers array
-     * 
-     * @param {int} index 
-     */
-    function handleBrowserUpdate( index ) {
-        updateBrowsers( availableBrowsers => {
-            availableBrowsers[index].checked = ! availableBrowsers[index].checked;
-            return [...availableBrowsers];
-        } );
-    }
-
-    /**
-     * Updates the users selected browsers based on their checkboxes
-     * Fires once on load and each time availableBrowsers is updated (when checkboxes are changed)
-     */
-    useEffect(() => {
-        updateSelectedBrowsers( selectedBrowsers => {
-            return availableBrowsers.filter( function( obj ) {
-                return obj.checked;
-            }).map( a => a.value );
-        } );
-    }, [availableBrowsers]);
-
-    /**
      * Send request to testing server to run selected tests for the selected domain
      * 
      * @param {object} e event 
@@ -207,16 +182,16 @@ function Testing() {
      */
     useEffect(() => {
         updateApiUrl( apiUrl => {
-            return 'https://212.71.232.30/TestSuite/api.php?url='+selectedDomain+'&user_id='+window.my_account_app.user_id+'&tests='+selectedTests.join( ',' );
+            return 'https://212.71.232.30/TestSuite/api.php?url='+selectedDomain+'&user_id='+window.my_account_app.user_id+'&tests='+selectedTests.join( ',' )+'&browser='+selectedBrowser;
         });
-    }, [selectedDomain, selectedTests]);
+    }, [selectedDomain, selectedTests, selectedBrowser]);
 
     /**
      * Whenever the given options are updated, update the entries in the users metadata
      */
     useOnChangeEffect( () => {
         saveSettings();
-    }, [domains, selectedDomain, selectedTests, selectedBrowsers])
+    }, [domains, selectedDomain, selectedTests, selectedBrowser])
 
     /**
      * Checks given URL is valid format
@@ -245,7 +220,7 @@ function Testing() {
                     <button id="add-domain" onClick={e => addDomain( e )} disabled={isTesting}>Add</button>
                 </fieldset>
                 <fieldset>
-                    <label>Select domain to test
+                    <label>Select domain to test:
                         <select name="domains" value={selectedDomain} onChange={e => setSelectedDomain(e.target.value)}>
                             <option value="">Select a Domain...</option>
                             {domains.map( currentDomain => (
@@ -268,14 +243,16 @@ function Testing() {
                     }) }
                 </fieldset>
                 <fieldset>
-                    { browsers.map(({ name, value, checked }, index) => {
-                        return (
-                            <label>
-                                <input type="checkbox" name={value} value={value} onChange={e => handleBrowserUpdate(index)} checked={checked} />
-                                {name}
-                            </label>
-                          );
-                    }) }
+                    <label>Select browser to run tests in:
+                        <select name="browsers" value={selectedBrowser} onChange={e => setSelectedBrowser(e.target.value)}>
+                            <option value="">Select a Browser...</option>
+                            {browsers.map( currentBrowser => (
+                                <option key={currentBrowser} value={currentBrowser}>
+                                    {currentBrowser}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
                 </fieldset>
                 {isTesting ? <Spinner /> : <input type="submit" value="Run Tests" onClick={e => runTests(e)} /> }
             </form>

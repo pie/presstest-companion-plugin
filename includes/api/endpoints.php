@@ -67,8 +67,8 @@ function register_metafields() {
                     'selected_tests'   => array(
                         'type' => 'array',
                     ),
-                    'selected_browsers' => array(
-                        'type' => 'array',
+                    'selected_browser' => array(
+                        'type' => 'string',
                     ),
                  ),
             ),
