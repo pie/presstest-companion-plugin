@@ -22,21 +22,31 @@
             cursor: pointer;
         }
         &.woocommerce-error {
-            border-top-color: #f44336;
+            border-top-color: #d91515;
         }
     }
     .accordion {
         .passed {
-            border-left: 3px solid greenyellow;
+            border-left: 3px solid #0ec81e;
         }
         .failed {
-            border-left: 3px solid red;
+            border-left: 3px solid #d91515;
         }
         .pending {
-            border-left: 3px solid orange;
+            border-left: 3px solid #eea343;
         }
         .accordion__heading {
             overflow: hidden;
+        }
+        pre {
+            background-color: #eceaea;
+            padding: 5px;
+            border: 1px solid #cecaca;
+            white-space: pre-wrap;
+            overflow: auto;
+            &:not(.actual) {
+                margin-top: 0;
+            }
         }
     }
     .loading-spinner {

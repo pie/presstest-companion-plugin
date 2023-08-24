@@ -160,6 +160,31 @@ function Results() {
     }
   }
 
+  function parse_error_message( $msg ) {
+    $msg = $msg.replace( 'Error:', '' );
+    if ( $msg.includes( '==========' ) ) {
+      return $msg.substring( 0, $msg.indexOf( '==========' ) );
+    } else {
+      return $msg;
+    }
+  }
+
+  function parse_error_stack( $stack ) {
+    $stack = $stack.replace( 'Error:', '' );
+    return $stack;
+  }
+
+  function parse_error_diff( $diff, $type = '' ) {
+    if ( 'actual' === $type ) {
+      return $diff.substring( 0, $diff.indexOf( '+' ) );
+    }
+    if ( 'expected' === $type ) {
+      return '+' + $diff.substring( $diff.indexOf( '+' ) + 1 );
+    }
+
+    return $diff;
+  }
+
   /**
    * Build result for given test
    * 
@@ -175,7 +200,38 @@ function Results() {
             </AccordionItemButton>
           </AccordionItemHeading>
           <AccordionItemPanel>
-            {$test.code}
+            {Boolean( $test.err.message ) ? (
+              <p><b>Message: </b>{parse_error_message( $test.err.message )}</p>
+            ) : ( null )}
+            {Boolean( $test.err.estack ) ? (
+              <p>
+                <b>Error Stack: </b>
+                <pre>
+                  {parse_error_stack( $test.err.estack )}
+                </pre>
+              </p>
+            ) : ( null )}
+            {Boolean( $test.err.diff ) ? (
+              <p>
+                <b>Diff: </b>
+                <pre class="expected">
+                  Expected:<br />
+                  {parse_error_diff( $test.err.diff, 'expected' )}
+                </pre>
+                <pre class="actual">
+                  Actual:<br />
+                  {parse_error_diff( $test.err.diff, 'actual' )}
+                </pre>
+              </p>
+            ) : ( null )}
+            {Boolean( $test.code ) ? (
+              <p>
+                <b>Code:</b>
+                <pre>
+                  {$test.code }
+                </pre>
+              </p>
+            ) : ( null )}
           </AccordionItemPanel>
         </AccordionItem>
     </Accordion>

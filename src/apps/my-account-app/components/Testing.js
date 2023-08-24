@@ -157,8 +157,6 @@ function Testing() {
             const response = await axios.get(
                 apiUrl
             );
-
-            console.log( response );
         
             // Response not 200
             if ( 200 !== response.status ) {
@@ -167,7 +165,7 @@ function Testing() {
 
             // Ran tests successfully
             setTestingStatus( false );
-            updateMessage( { 'type':'message', 'message':response.status_message } );
+            updateMessage( { 'type':'message', 'message':response.data.status_message } );
 
         } catch ( error ) {
             // Error
