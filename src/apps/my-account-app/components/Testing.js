@@ -4,6 +4,7 @@ import axios from 'axios';
 import { tests } from "../data/tests";
 import validator from 'validator'
 import Spinner from './Spinner';
+import Select from 'react-select';
 
 const defaultSelectedDomain  = window.my_account_app.user_settings.selected_domain ? window.my_account_app.user_settings.selected_domain : '';
 const defaultDomains         = window.my_account_app.user_settings.domains ? window.my_account_app.user_settings.domains : [];
@@ -23,7 +24,7 @@ function Testing() {
     // Handlers for the users selected browser
     const [selectedBrowser, setSelectedBrowser]      = useState( defaultSelectedBrowser );
     // Handlers for the selected browser in the select field
-    const [browsers, updateBrowsers]                 = useState( [ 'chrome', 'firefox', 'safari' ] );
+    const [browsers]                                 = useState( [ 'chrome', 'firefox', 'safari' ] );
     // URL for the test suite (populated with useEffect hook)
     const [apiUrl, updateApiUrl]                     = useState( '' );
     // Are we running tests?
@@ -73,6 +74,14 @@ function Testing() {
             setSelectedDomain('');
         }
     };
+
+    function updateSelectedDomain( input ) {
+        setSelectedDomain( input.value );
+    }
+
+    function updateSelectedBrowser( input ) {
+        setSelectedBrowser( input.value );
+    }
 
     /**
      * Send request to update usermeta with the provided domains
@@ -205,6 +214,18 @@ function Testing() {
         }
     };
 
+    function generateDomainsArray() {
+        return domains.map( domain => (
+            { 'value':domain, 'label':domain }
+        ));
+    };
+
+    function generateBrowsersArray() {
+        return browsers.map( browser => (
+            { 'value':browser, 'label':browser }
+        ));
+    };
+
     return (
         <div className='content-wrap'>
             { !! message.message && <div className={'message-wrap woocommerce-'+message.type}>
@@ -212,25 +233,23 @@ function Testing() {
             </div> }
             <form>
                 <fieldset>
-                    <label>Add Domain
-                        <input type="url" name="new-domain" onChange={e => updateDomain(e.target.value)} value={domain} />
-                    </label>
-                    <button id="add-domain" onClick={e => addDomain( e )} disabled={isTesting}>Add</button>
+                    <label for="new-domain" class="fieldset-instruction">Add new Domain:</label>
+                    <input type="url" class="input-text" name="new-domain" onChange={e => updateDomain(e.target.value)} value={domain} /> 
+                    <button id="add-domain" class="button primary" onClick={e => addDomain( e )} disabled={isTesting}>Add</button>
                 </fieldset>
                 <fieldset>
-                    <label>Select domain to test:
-                        <select name="domains" value={selectedDomain} onChange={e => setSelectedDomain(e.target.value)}>
-                            <option value="">Select a Domain...</option>
-                            {domains.map( currentDomain => (
-                                <option key={currentDomain} value={currentDomain}>
-                                    {currentDomain}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <button id="remove-domain" onClick={e => removeDomain( e )} disabled={isTesting}>Remove</button>
+                    <label for="domains" class="fieldset-instruction">Select domain to test:</label>
+                    <Select
+                        value={{ value: selectedDomain, label: selectedDomain }}
+                        onChange={updateSelectedDomain}
+                        name="domains"
+                        options={generateDomainsArray()}
+                        menuPortalTarget={document.body}
+                    />
+                    <button id="remove-domain" class="button primary" onClick={e => removeDomain( e )} disabled={isTesting}>Remove</button>
                 </fieldset>
                 <fieldset>
+                    <label for="tests" class="fieldset-instruction">Select tests to run:</label>
                     { tests.map(({ name, value, checked }, index) => {
                         return (
                             <label>
@@ -241,17 +260,16 @@ function Testing() {
                     }) }
                 </fieldset>
                 <fieldset>
-                    <label>Select browser to run tests in:
-                        <select name="browsers" value={selectedBrowser} onChange={e => setSelectedBrowser(e.target.value)}>
-                            {browsers.map( currentBrowser => (
-                                <option key={currentBrowser} value={currentBrowser}>
-                                    {currentBrowser}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <label for="browsers" class="fieldset-instruction">Select browser to run tests in:</label>
+                    <Select
+                        value={{ value: selectedBrowser, label: selectedBrowser }}
+                        onChange={updateSelectedBrowser}
+                        name="browsers"
+                        options={generateBrowsersArray()}
+                        menuPortalTarget={document.body}
+                    />
                 </fieldset>
-                {isTesting ? <Spinner /> : <input type="submit" value="Run Tests" onClick={e => runTests(e)} /> }
+                {isTesting ? <Spinner /> : <input type="submit" value="Run Tests" class="button primary" onClick={e => runTests(e)} /> }
             </form>
         </div>
     );

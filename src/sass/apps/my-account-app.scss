@@ -5,7 +5,22 @@
         }
         fieldset {
             padding: 1rem;
-            input[type="url"], select {
+            display: flex;
+            flex-wrap: wrap;
+            & > div {
+                flex: 2;
+            }
+            label.fieldset-instruction {
+                width: 100%;
+            }
+            input.input-text {
+                flex: 1;
+            }
+            input[type="checkbox"] {
+                margin-right: 0.5rem;
+            }
+            button {
+                min-width: 5rem;
                 margin-left: 1rem;
             }
         }
