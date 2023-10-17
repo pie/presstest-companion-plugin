@@ -9,7 +9,6 @@ import Select from 'react-select';
 const defaultSelectedDomain  = window.my_account_app.user_settings.selected_domain ? window.my_account_app.user_settings.selected_domain : '';
 const defaultDomains         = window.my_account_app.user_settings.domains ? window.my_account_app.user_settings.domains : [];
 const defaultSelectedBrowser = window.my_account_app.user_settings.selected_browser ? window.my_account_app.user_settings.selected_browser : '';
-const defaultSelections      = window.my_account_app.user_settings.selections ? window.my_account_app.user_settings.selections : {};
 
 function Testing() {
     // Handlers for the domain in the input field
@@ -20,7 +19,7 @@ function Testing() {
     const [domains, updateDomains]                   = useState( defaultDomains );
     // Handlers for the selected test from given checkboxes
     const [availableTests, updateTests]              = useState( tests );
-    // Handlers for the users selected tests (default selection, when a domain is not yet selected)
+    // Handlers for the users selected tests
     const [selectedTests, updateSelectedTests]       = useState( [] );
     // Handlers for the users selected browser
     const [selectedBrowser, setSelectedBrowser]      = useState( defaultSelectedBrowser );
@@ -32,8 +31,6 @@ function Testing() {
     const [isTesting, setTestingStatus]              = useState( false );
     // Notification error/message
     const [message, updateMessage]                   = useState( { 'type' : 'success', 'message' : '' } );
-	// Mapped selected domain to selected tests
-    const [selections, updateSelections]             = useState( defaultSelections );
     
     /**
      * Takes the URL from the input, checks if it already exists in the select options and adds it if it doesn't
@@ -115,7 +112,6 @@ function Testing() {
                             'selected_domain' : selectedDomain,
                             'selected_tests' : selectedTests,
                             'selected_browser' : selectedBrowser,
-							'selections' : selections,
                         }
                     }
                 }
@@ -138,15 +134,23 @@ function Testing() {
      * @param {int} index 
      */
     function handleTestUpdate( index ) {
-		let test         = availableTests[index].value;
-		let updatedTests = [...selectedTests];
-		if ( updatedTests.includes( test ) ) {
-			updatedTests.splice( updatedTests.indexOf( test ), 1 );
-		} else {
-			updatedTests.push( test );
-		}
-		updateSelectedTests( updatedTests );
+        updateTests( availableTests => {
+            availableTests[index].checked = ! availableTests[index].checked;
+            return [...availableTests];
+        } );
     }
+
+    /**
+     * Updates the users selected tests based on their checkboxes
+     * Fires once on load and each time availableTests is updated (when checkboxes are changed)
+     */
+    useEffect(() => {
+        updateSelectedTests( selectedTests => {
+            return availableTests.filter( function( obj ) {
+                return obj.checked;
+            }).map( a => a.value );
+        } );
+    }, [availableTests]);
 
     /**
      * Send request to testing server to run selected tests for the selected domain
@@ -194,41 +198,7 @@ function Testing() {
      */
     useOnChangeEffect( () => {
         saveSettings();
-    }, [domains, selectedBrowser, selections, selectedDomain]);
-
-	/**
-	 * When the selected domain is changed, update the selected tests
-	 */
-	useOnChangeEffect(() => {
-		console.log( 'updating selected tests' );
-		console.log( selectedTests );
-		let newSelectedTests = [...selectedTests];
-		console.log( newSelectedTests );
-		if ( typeof selections[selectedDomain] != 'undefined' ) {
-			newSelectedTests = selections[selectedDomain];
-		} else {
-			newSelectedTests = [];
-		}
-		console.log( newSelectedTests );
-		updateSelectedTests( selectedTests => {
-			return newSelectedTests;
-		});
-    }, [selectedDomain]);
-
-	/**
-	 * When the selected tests are changed, update the selections array for the current domain
-	 */
-	useOnChangeEffect(() => {
-		console.log( 'updating selections' );
-		console.log( selections );
-		let newSelections             = [...selections];
-		console.log( newSelections );
-		newSelections[selectedDomain] = selectedTests;
-		console.log( newSelections );
-		updateSelections( selections => {
-            return newSelections;
-        });
-    }, [selectedTests]);
+    }, [domains, selectedDomain, selectedTests, selectedBrowser])
 
     /**
      * Checks given URL is valid format
@@ -280,11 +250,7 @@ function Testing() {
                 </fieldset>
                 <fieldset>
                     <label for="tests" class="fieldset-instruction">Select tests to run:</label>
-                    { tests.map(({ name, value }, index) => {
-						let checked = false;
-						if ( typeof selections[selectedDomain] != 'undefined' ) {
-							checked = selections[selectedDomain].includes( value );
-						}
+                    { tests.map(({ name, value, checked }, index) => {
                         return (
                             <label>
                                 <input type="checkbox" name={value} value={value} onChange={e => handleTestUpdate(index)} checked={checked} />

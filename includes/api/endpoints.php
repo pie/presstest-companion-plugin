@@ -70,9 +70,6 @@ function register_metafields() {
                     'selected_browser' => array(
                         'type' => 'string',
                     ),
-					'selections' => array(
-						'type' => 'array',
-					),
                  ),
             ),
         ),
