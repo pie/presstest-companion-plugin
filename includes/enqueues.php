@@ -24,10 +24,12 @@ function enqueues_frontend() {
 
     // Only enqueue react generated assets if on the WC account page (this may need to be changed if compiling everything)
     if ( is_account_page() ) {
+
+        wp_enqueue_script( 'wp-api' );
         
         foreach( glob( $file_path . 'js/*.js' ) as $file ) {
             $filename = substr( $file, strrpos( $file, '/' ) + 1 );
-            wp_enqueue_script( $filename, $enqueue_path . 'js/' . $filename, array(), filemtime( $file_path . 'js/' . $filename ), true );
+            wp_enqueue_script( $filename, $enqueue_path . 'js/' . $filename, array( 'wp-api' ), filemtime( $file_path . 'js/' . $filename ), true );
             wp_localize_script( $filename, 'my_account_app', array(
                 'user_id'                         => get_current_user_id(),
                 'username'                        => 'joey@pie.co.de',
@@ -48,6 +50,5 @@ function enqueues_frontend() {
         }
 
         wp_enqueue_style( 'dashicons' );
-        wp_enqueue_script( 'wp-api' );
     }
 }
