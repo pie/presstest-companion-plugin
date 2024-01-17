@@ -52,7 +52,7 @@ function Results() {
   // When the current page changes, update the current results
   useEffect(() => {
     setCurrentResults( allResults.slice( ( currentPage - 1 ) * 10, currentPage * 10 ) );
-  }, [currentPage]);
+  }, [currentPage, allResults]);
 
   // Next page clicked, update the current page
   const handleNextPage = () => {

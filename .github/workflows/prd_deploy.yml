@@ -16,7 +16,9 @@ jobs:
 
       - name: Add SSH key
         env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock,
+          # TEMP set CI to false to prevent yarn from failing
+          CI: ''
         run: |
             echo 'made it to mkdir'
             mkdir -p /home/runner/.ssh
