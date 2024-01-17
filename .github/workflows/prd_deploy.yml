@@ -16,9 +16,7 @@ jobs:
 
       - name: Add SSH key
         env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock,
-          # TEMP set CI to false to prevent yarn from failing
-          CI: ''
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
             echo 'made it to mkdir'
             mkdir -p /home/runner/.ssh
@@ -47,6 +45,9 @@ jobs:
         uses: borales/actions-yarn@v4
         with:
           cmd: build
+        env:
+          # TEMP set CI to false to prevent yarn from failing
+          CI: ''
 
       - name: Run composer install
         run: composer install --prefer-dist
