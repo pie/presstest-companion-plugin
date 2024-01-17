@@ -1,0 +1,53 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - name: Add SSH key
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
+        run: |
+            echo 'made it to mkdir'
+            mkdir -p /home/runner/.ssh
+            echo 'made it to ssh-keyscan'
+            ssh-keyscan -p ${{ vars.SSH_PORT }} ${{ vars.SSH_HOST }} >> /home/runner/.ssh/known_hosts
+            echo 'made it to adding SSH_PRIVATE_KEY'
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" > /home/runner/.ssh/github_actions
+            echo 'made it to chmod 600'
+            chmod 600 /home/runner/.ssh/github_actions
+            echo 'made it to ssh-agent -a'
+            ssh-agent -a $SSH_AUTH_SOCK > /dev/null
+            echo 'made it to ssh-add'
+            ssh-add /home/runner/.ssh/github_actions
+      
+      - name: Set Node.js 16.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+    
+      - name: Run yarn install
+        uses: borales/actions-yarn@v4
+        with:
+          cmd: install
+          
+      - name: Run yarn build
+        uses: borales/actions-yarn@v4
+        with:
+          cmd: build
+
+      - name: Run composer install
+        run: composer install --prefer-dist
+          
+      - name: RSync theme to production
+        run: rsync -avP --no-perms --no-times --exclude-from='deployment-exclusions.txt' -e 'ssh -i /home/runner/.ssh/github_actions -p ${{ vars.SSH_PORT }}' . ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:${{ vars.SSH_PRD_DIR }}
