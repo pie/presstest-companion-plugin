@@ -48,9 +48,6 @@ jobs:
         env:
           # TEMP set CI to false to prevent yarn from failing
           CI: ''
-
-      - name: Run composer install
-        run: composer install --prefer-dist
           
       - name: RSync theme to production
         run: rsync -avP --no-perms --no-times --exclude-from='deployment-exclusions.txt' -e 'ssh -i /home/runner/.ssh/github_actions -p ${{ vars.SSH_PORT }}' . ${{ vars.SSH_USER }}@${{ vars.SSH_HOST }}:${{ vars.SSH_PRD_DIR }}
