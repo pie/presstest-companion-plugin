@@ -196,7 +196,9 @@ function Testing() {
     /**
      * Whenever the given options are updated, update the entries in the users metadata
      */
-    useOnChangeEffect( saveSettings(), [domains, selectedDomain, selectedTests, selectedBrowser] );
+    useOnChangeEffect( () => {
+        saveSettings();
+    }, [domains, selectedDomain, selectedTests, selectedBrowser])
 
     /**
      * Checks given URL is valid format
