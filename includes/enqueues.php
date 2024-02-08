@@ -32,8 +32,8 @@ function enqueues_frontend() {
             wp_enqueue_script( $filename, $enqueue_path . 'js/' . $filename, array( 'wp-api' ), filemtime( $file_path . 'js/' . $filename ), true );
             wp_localize_script( $filename, 'my_account_app', array(
                 'user_id'                         => get_current_user_id(),
-                'username'                        => 'joey@pie.co.de',
-                'password'                        => '***REMOVED***',
+                'username'                        => 'joey',
+                'password'                        => 'password',
                 'user_settings'                   => get_user_meta( get_current_user_id(), '_presstest_settings', true ) ? get_user_meta( get_current_user_id(), '_presstest_settings', true ) : array(),
                 'domain_already_exists_message'   => __( 'Domain has already been added.  Please select it from the dropdown to use it for testing.', 'pie-testing-platform' ),
                 'domain_invalid_message'          => __( 'Domain is not a valid URL.', 'pie-testing-platform' ),
