@@ -189,7 +189,7 @@ function Testing() {
      */
     useEffect(() => {
         updateApiUrl( apiUrl => {
-            return 'https://212.71.232.30/TestSuite/api.php?url='+selectedDomain+'&user_id='+window.my_account_app.user_id+'&tests='+selectedTests.join( ',' )+'&browser='+selectedBrowser+'&username='+window.my_account_app.username+'&password='+window.my_account_app.password;
+            return 'https://212.71.232.30/TestSuite/api.php?url='+selectedDomain+'&user_id='+window.my_account_app.user_id+'&tests='+selectedTests.join( ',' )+'&browser='+selectedBrowser;
         });
     }, [selectedDomain, selectedTests, selectedBrowser]);
 
