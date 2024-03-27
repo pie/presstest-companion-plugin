@@ -8,6 +8,11 @@ export const tests = [
         'name': 'Nature Studio',
         'value': 'nature-studio',
         'checked': user_has_selected_test( 'nature-studio' ),
+    },
+    {
+        'name': 'WooCommerce Core',
+        'value': 'woocommerce-core',
+        'checked': user_has_selected_test( 'woocommerce-core' ),
     }
 ]
 
