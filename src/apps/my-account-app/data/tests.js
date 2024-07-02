@@ -10,6 +10,11 @@ export const tests = [
         'checked': user_has_selected_test( 'nature-studio' ),
     },
     {
+        'name': 'V & Me',
+        'value': 'vandme',
+        'checked': user_has_selected_test( 'vandme' ),
+    },
+    {
         'name': 'WooCommerce Core',
         'value': 'woocommerce-core',
         'checked': user_has_selected_test( 'woocommerce-core' ),
