@@ -127,7 +127,7 @@ function Testing() {
 			{ '' !== message.message && (
 				<div className={'message-wrap message-wrap--' + ( 'error' === message.type ? 'error' : 'success' )}>
 					<p>{message.message}</p>
-					<i className='close dashicons dashicons-dismiss' onClick={() => updateMessage( {} )}></i>
+					<i className='close dashicons dashicons-dismiss' onClick={() => updateMessage( { type: '', message: '' } )}></i>
 				</div>
 			)}
 			<p className='presstest-site-url'>
