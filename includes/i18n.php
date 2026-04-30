@@ -1,33 +1,27 @@
 <?php
-
 /**
- * Define the internationalization functionality
- *
- * Loads and defines the internationalization files for this plugin
- * so that it is ready for translation.
+ * Define the internationalization functionality.
  *
  * @link       https://pie.co.de
- * @since      1.0.0
+ * @since      2.0.0
  *
- * @package    PIE\TestingPlatform
- * @subpackage PIE\TestingPlatform/includes
+ * @package    PIE\PresstestCompanion
+ * @subpackage PIE\PresstestCompanion/includes
  */
 
- namespace PIE\TestingPlatform;
+namespace PIE\PresstestCompanion;
 
 /**
  * Load the plugin text domain for translation.
  *
- * @since    1.0.0
+ * @since 2.0.0
+ * @return void
  */
 function load_plugin_textdomain() {
-
 	\load_plugin_textdomain(
-		'pie-testing-platform',
+		'presstest-companion',
 		false,
-		dirname( dirname( plugin_basename( __FILE__ ) ) ) . '/languages/'
+		plugin_basename( PRESSTEST_COMPANION_FILE_PATH ) . 'languages'
 	);
-
 }
 add_action( 'plugins_loaded', __NAMESPACE__ . '\load_plugin_textdomain' );
-

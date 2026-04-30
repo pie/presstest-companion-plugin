@@ -8,7 +8,7 @@ import '../../sass/apps/my-account-app.scss';
 function App() {
   return (
     <div>
-      <h2>Testing Platform</h2>
+      <h2>Presstest</h2>
       <Tabs>
         <TabList>
           <Tab>Testing</Tab>

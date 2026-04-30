@@ -1,265 +1,217 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-  Accordion,
-  AccordionItem,
-  AccordionItemHeading,
-  AccordionItemButton,
-  AccordionItemPanel,
+	Accordion,
+	AccordionItem,
+	AccordionItemHeading,
+	AccordionItemButton,
+	AccordionItemPanel,
 } from 'react-accessible-accordion';
-
-// Demo styles, see 'Styles' section below for some notes on use.
 import '../../../../node_modules/react-accessible-accordion/dist/fancy-example.css';
 
+/**
+ * Recursively collect all specs from a suite (handles nested describe blocks).
+ *
+ * @param {object} suite Playwright suite node.
+ * @returns {Array}
+ */
+function collectSpecs( suite ) {
+	const specs = suite.specs ? [ ...suite.specs ] : [];
+	if ( suite.suites ) {
+		suite.suites.forEach( child => specs.push( ...collectSpecs( child ) ) );
+	}
+	return specs;
+}
+
+/**
+ * Derive the CSS status class for a single spec.
+ *
+ * @param {object} spec Playwright spec node.
+ * @returns {string} 'passed' | 'failed' | 'pending'
+ */
+function specStatus( spec ) {
+	if ( ! spec.ok ) {
+		return 'failed';
+	}
+	const hasSkipped = ( spec.tests ?? [] ).some( t => 'skipped' === t.status );
+	return hasSkipped ? 'pending' : 'passed';
+}
+
+/**
+ * Derive the CSS status class for an entire report.
+ *
+ * @param {object} report Parsed Playwright JSON report.
+ * @returns {string} 'passed' | 'failed' | 'pending'
+ */
+function reportStatus( report ) {
+	if ( ( report.stats?.unexpected ?? 0 ) > 0 ) {
+		return 'failed';
+	}
+	if ( ( report.stats?.skipped ?? 0 ) > 0 ) {
+		return 'pending';
+	}
+	return 'passed';
+}
+
 function Results() {
-  const [allResults, setAllResults]         = useState( [] );
-  const [currentResults, setCurrentResults] = useState( [] );
-  const [loading, setLoading]               = useState( true );
-  const [currentPage, setCurrentPage]       = useState( 1 );
-  const [totalPages, setTotalPages]         = useState( 1 );
+	const [allResults, setAllResults]         = useState( [] );
+	const [currentResults, setCurrentResults] = useState( [] );
+	const [loading, setLoading]               = useState( true );
+	const [currentPage, setCurrentPage]       = useState( 1 );
+	const [totalPages, setTotalPages]         = useState( 1 );
 
-  useEffect(() => {
-    setLoading( true );
-    // Set up the Axios instance with interceptors
-    const axiosInstance = axios.create();
+	useEffect( () => {
+		setLoading( true );
 
-    // Add the interceptors to modify the request before sending
-    axiosInstance.interceptors.request.use(( config ) => {
-      // Modify the request config before sending
-      config.headers['X-WP-Nonce'] = window.wpApiSettings.nonce; // Set the nonce header
+		const axiosInstance = axios.create();
+		axiosInstance.interceptors.request.use( config => {
+			config.headers['X-WP-Nonce'] = window.wpApiSettings.nonce;
+			return config;
+		} );
 
-      return config;
-    });
-    // Get all reports from the API
-    const fetchResults = async () => {
-        try {
-            const response = await axiosInstance.get( window.wpApiSettings.root + 'pie-testing-platform/v1/reports' );
+		const fetchResults = async () => {
+			try {
+				const response = await axiosInstance.get( window.wpApiSettings.root + 'presstest-companion/v1/reports' );
+				setAllResults( response.data );
+				setTotalPages( Math.ceil( response.data.length / 10 ) );
+				setCurrentResults( response.data.slice( 0, 10 ) );
+				setLoading( false );
+			} catch ( error ) {
+				console.error( error );
+				setLoading( false );
+			}
+		};
 
-            console.log( response );
-            setAllResults( response.data );
-            setTotalPages( response.data.length / 10 );
-            setCurrentResults( response.data.slice( 0, 10 ) );
-            setLoading( false );
-        } catch ( error ) {
-            console.error( error );
-            setLoading( false );
-        }
-    };
+		fetchResults();
+	}, [] );
 
-    fetchResults();  
-  }, [] );
+	// Update the visible slice when the user pages.
+	useEffect( () => {
+		setCurrentResults( allResults.slice( ( currentPage - 1 ) * 10, currentPage * 10 ) );
+	}, [currentPage, allResults] );
 
-  // When the current page changes, update the current results
-  useEffect(() => {
-    setCurrentResults( allResults.slice( ( currentPage - 1 ) * 10, currentPage * 10 ) );
-  }, [currentPage, allResults]);
+	/**
+	 * Render the accordion panel for a single spec (individual test).
+	 *
+	 * @param {object} spec  Playwright spec node.
+	 * @param {number} index List key.
+	 * @returns {JSX.Element}
+	 */
+	function renderSpec( spec, index ) {
+		const status  = specStatus( spec );
+		const result  = spec.tests?.[0]?.results?.[0] ?? null;
+		const error   = result?.error ?? null;
 
-  // Next page clicked, update the current page
-  const handleNextPage = () => {
-    setCurrentPage( prevPage => prevPage + 1 );
-  };
+		return (
+			<Accordion key={index} allowZeroExpanded allowMultipleExpanded>
+				<AccordionItem className={status}>
+					<AccordionItemHeading>
+						<AccordionItemButton>
+							{spec.title} &mdash; {status}
+						</AccordionItemButton>
+					</AccordionItemHeading>
+					<AccordionItemPanel>
+						{error?.message && (
+							<p><b>Message: </b>{error.message}</p>
+						)}
+						{error?.stack && (
+							<p><b>Stack: </b><pre>{error.stack}</pre></p>
+						)}
+						{result?.duration !== undefined && (
+							<p><b>Duration: </b>{result.duration}ms</p>
+						)}
+					</AccordionItemPanel>
+				</AccordionItem>
+			</Accordion>
+		);
+	}
 
-  // Previous page clicked, update the current page
-  const handlePrevPage = () => {
-    setCurrentPage( prevPage => prevPage - 1 );
-  };
+	/**
+	 * Render a file-level suite with all its specs.
+	 *
+	 * @param {object} suite Playwright suite node.
+	 * @param {number} index List key.
+	 * @returns {JSX.Element|null}
+	 */
+	function renderSuite( suite, index ) {
+		const specs = collectSpecs( suite );
 
-  /**
-   * Build the report list from the given report JSON
-   * 
-   * @param {string} $report_json 
-   * @returns 
-   */
-  function get_report_list_item( $report_json ) {
-    const $report = JSON.parse( $report_json.report );
-    return <AccordionItem className={get_report_status( $report )}>
-      <AccordionItemHeading>
-        <AccordionItemButton>
-          {$report_json.domain} ({$report_json.browser}) - {$report_json.date}
-        </AccordionItemButton>
-      </AccordionItemHeading>
-      <AccordionItemPanel>
-        <ul>
-          <li>Total tests: {$report.stats.tests}</li>
-          {$report.stats.passes > 0 && (
-            <li >Passed: {$report.stats.passes}</li>
-          )}
-          {$report.stats.failures > 0 && (
-            <li >Failed: {$report.stats.failures}</li>
-          )}
-          {$report.stats.pending > 0 && (
-            <li >Pending: {$report.stats.pending}</li>
-          )}
-          { $report.results.map( ( $result ) => (
-              get_result_list_item( $result )
-          ))}
-        </ul>
-      </AccordionItemPanel>
-    </AccordionItem>
-  };
+		if ( 0 === specs.length ) {
+			return null;
+		}
 
-  /**
-   * Get status for current report
-   * Returns failed if ANY tests failed
-   * 
-   * @param {object} $report 
-   * @returns 
-   */
-  function get_report_status( $report ) {
-    if ( $report.stats.failures > 0 ) {
-      return 'failed';
-    } else if ( $report.stats.pending > 0 ) {
-      return 'pending';
-    } else {
-      return 'passed';
-    }
-  }
+		const status = specs.some( s => ! s.ok ) ? 'failed' : 'passed';
 
-  /**
-   * Build suite results from the report info given
-   * 
-   * @param {object} $result 
-   * @returns 
-   */
-  function get_result_list_item( $result ) {
-    if ( ! $result.suites ) {
-      return;
-    }
-    return <Accordion allowZeroExpanded allowMultipleExpanded>
-      { $result.suites.map( ( $suite ) => (
-        <AccordionItem className={get_suite_status( $suite )}>
-          <AccordionItemHeading>
-            <AccordionItemButton>
-              {$suite.title} ({$suite.tests.length})
-            </AccordionItemButton>
-          </AccordionItemHeading>
-          <AccordionItemPanel>
-            { $suite.tests.map( ( $test ) => (
-                get_test_result_item( $test )
-            ))}
-          </AccordionItemPanel>
-        </AccordionItem>
-      ))}
-    </Accordion>
-  };
+		return (
+			<Accordion key={index} allowZeroExpanded allowMultipleExpanded>
+				<AccordionItem className={status}>
+					<AccordionItemHeading>
+						<AccordionItemButton>
+							{suite.title} ({specs.length})
+						</AccordionItemButton>
+					</AccordionItemHeading>
+					<AccordionItemPanel>
+						{specs.map( ( spec, i ) => renderSpec( spec, i ) )}
+					</AccordionItemPanel>
+				</AccordionItem>
+			</Accordion>
+		);
+	}
 
-  /**
-   * Get status for current suite
-   * Returns failed if ANY tests failed
-   * 
-   * @param {object} $suite 
-   * @returns 
-   */
-  function get_suite_status( $suite ) {
-    if ( $suite.failures.length > 0 ) {
-      return 'failed';
-    } else if ( $suite.pending.length > 0 ) {
-      return 'pending';
-    } else {
-      return 'passed';
-    }
-  }
+	/**
+	 * Render the top-level accordion item for a database report row.
+	 *
+	 * @param {object} row Database row with domain, browser, date, report fields.
+	 * @returns {JSX.Element}
+	 */
+	function renderReport( row ) {
+		const report = JSON.parse( row.report );
+		const stats  = report.stats ?? {};
+		const total  = ( stats.expected ?? 0 ) + ( stats.unexpected ?? 0 ) + ( stats.skipped ?? 0 ) + ( stats.flaky ?? 0 );
+		const status = reportStatus( report );
 
-  function parse_error_message( $msg ) {
-    $msg = $msg.replace( 'Error:', '' );
-    if ( $msg.includes( '==========' ) ) {
-      return $msg.substring( 0, $msg.indexOf( '==========' ) );
-    } else {
-      return $msg;
-    }
-  }
+		return (
+			<AccordionItem key={row.id} className={status}>
+				<AccordionItemHeading>
+					<AccordionItemButton>
+						{row.domain} ({row.browser}) &mdash; {row.date}
+					</AccordionItemButton>
+				</AccordionItemHeading>
+				<AccordionItemPanel>
+					<ul>
+						<li>Total: {total}</li>
+						{stats.expected > 0 && <li>Passed: {stats.expected}</li>}
+						{stats.unexpected > 0 && <li>Failed: {stats.unexpected}</li>}
+						{stats.skipped > 0 && <li>Skipped: {stats.skipped}</li>}
+						{stats.flaky > 0 && <li>Flaky: {stats.flaky}</li>}
+					</ul>
+					{( report.suites ?? [] ).map( ( suite, i ) => renderSuite( suite, i ) )}
+				</AccordionItemPanel>
+			</AccordionItem>
+		);
+	}
 
-  function parse_error_stack( $stack ) {
-    $stack = $stack.replace( 'Error:', '' );
-    return $stack;
-  }
-
-  function parse_error_diff( $diff, $type = '' ) {
-    if ( 'actual' === $type ) {
-      return $diff.substring( 0, $diff.indexOf( '+' ) );
-    }
-    if ( 'expected' === $type ) {
-      return '+' + $diff.substring( $diff.indexOf( '+' ) + 1 );
-    }
-
-    return $diff;
-  }
-
-  /**
-   * Build result for given test
-   * 
-   * @param {object} $test 
-   * @returns 
-   */
-  function get_test_result_item( $test ) {
-    return <Accordion allowZeroExpanded allowMultipleExpanded>
-        <AccordionItem className={$test.state}>
-          <AccordionItemHeading>
-            <AccordionItemButton>
-              {$test.title} - {$test.state}
-            </AccordionItemButton>
-          </AccordionItemHeading>
-          <AccordionItemPanel>
-            {Boolean( $test.err.message ) ? (
-              <p><b>Message: </b>{parse_error_message( $test.err.message )}</p>
-            ) : ( null )}
-            {Boolean( $test.err.estack ) ? (
-              <p>
-                <b>Error Stack: </b>
-                <pre>
-                  {parse_error_stack( $test.err.estack )}
-                </pre>
-              </p>
-            ) : ( null )}
-            {Boolean( $test.err.diff ) ? (
-              <p>
-                <b>Diff: </b>
-                <pre class="expected">
-                  Expected:<br />
-                  {parse_error_diff( $test.err.diff, 'expected' )}
-                </pre>
-                <pre class="actual">
-                  Actual:<br />
-                  {parse_error_diff( $test.err.diff, 'actual' )}
-                </pre>
-              </p>
-            ) : ( null )}
-            {Boolean( $test.code ) ? (
-              <p>
-                <b>Code:</b>
-                <pre>
-                  {$test.code }
-                </pre>
-              </p>
-            ) : ( null )}
-          </AccordionItemPanel>
-        </AccordionItem>
-    </Accordion>
-  }
-
-  return (
-    <div>
-      {loading ? (
-        <p>Loading...</p>
-      ) : (
-        <div>
-          <Accordion allowZeroExpanded allowMultipleExpanded>
-            { currentResults.map( ( result ) => (
-              get_report_list_item( result )
-            ))}
-          </Accordion>
-          <div>
-            {currentPage > 1 && (
-              <button onClick={handlePrevPage}>Previous</button>
-            )}
-            {currentPage < totalPages && (
-              <button onClick={handleNextPage}>Next</button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+	return (
+		<div>
+			{loading ? (
+				<p>Loading...</p>
+			) : (
+				<div>
+					<Accordion allowZeroExpanded allowMultipleExpanded>
+						{currentResults.map( row => renderReport( row ) )}
+					</Accordion>
+					<div>
+						{currentPage > 1 && (
+							<button onClick={() => setCurrentPage( p => p - 1 )}>Previous</button>
+						)}
+						{currentPage < totalPages && (
+							<button onClick={() => setCurrentPage( p => p + 1 )}>Next</button>
+						)}
+					</div>
+				</div>
+			)}
+		</div>
+	);
+}
 
 export default Results;

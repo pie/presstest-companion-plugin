@@ -1,35 +1,23 @@
 export const tests = [
-    {
-        'name': 'Wordpress Core',
-        'value': 'wordpress-core',
-        'checked': user_has_selected_test( 'wordpress-core' ),
-    },
-    {
-        'name': 'Nature Studio',
-        'value': 'nature-studio',
-        'checked': user_has_selected_test( 'nature-studio' ),
-    },
-    {
-        'name': 'V & Me',
-        'value': 'vandme',
-        'checked': user_has_selected_test( 'vandme' ),
-    },
-    {
-        'name': 'WooCommerce Core',
-        'value': 'woocommerce-core',
-        'checked': user_has_selected_test( 'woocommerce-core' ),
-    }
-]
+	{
+		name:    'WordPress Core',
+		value:   'wordpress-core',
+		checked: user_has_selected_test( 'wordpress-core' ),
+	},
+	{
+		name:    'WooCommerce Core',
+		value:   'woocommerce-core',
+		checked: user_has_selected_test( 'woocommerce-core' ),
+	},
+];
 
 /**
- * Checks if the given test is selected by the user based on their user metadata
- * 
- * @param {string} test 
- * @returns 
+ * Returns true if the user previously selected the given test suite.
+ *
+ * @param {string} test Suite directory name.
+ * @returns {boolean}
  */
 function user_has_selected_test( test ) {
-    if ( window.my_account_app.user_settings.selected_tests === undefined ) {
-        return false;
-    }
-    return window.my_account_app.user_settings.selected_tests.includes( test );
+	const selected = window.presstest_companion?.user_settings?.selected_tests;
+	return Array.isArray( selected ) && selected.includes( test );
 }

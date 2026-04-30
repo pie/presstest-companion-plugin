@@ -1,64 +1,56 @@
 <?php
-
 /**
- * Define the WooCommerce functionality
+ * Define the WooCommerce functionality.
  *
  * @link       https://pie.co.de
- * @since      1.0.0
+ * @since      2.0.0
  *
- * @package    PIE\TestingPlatform
- * @subpackage PIE\TestingPlatform/includes
+ * @package    PIE\PresstestCompanion
+ * @subpackage PIE\PresstestCompanion/includes
  */
 
-namespace PIE\TestingPlatform;
+namespace PIE\PresstestCompanion;
 
 /**
- * Register all of the endpoints related to woocommerce.
+ * Register the custom My Account endpoint.
  *
- * @since    1.0.0
+ * @since 2.0.0
+ * @return void
  */
 function register_wc_endpoints() {
-
-    add_rewrite_endpoint( 'pie-testing-platform', EP_ROOT | EP_PAGES );
-
+	add_rewrite_endpoint( 'presstest', EP_ROOT | EP_PAGES );
 }
 
 /**
- * Add query vars for woocommerce endpoints.
+ * Add the endpoint query variable.
  *
- * @since    1.0.0
- * @param array $vars
+ * @since 2.0.0
+ * @param array $vars Existing query variables.
  * @return array
  */
 function add_wc_query_vars( array $vars = array() ) {
-
-    $vars[] = 'pie-testing-platform';
+	$vars[] = 'presstest';
 	return $vars;
-
 }
 
 /**
- * Add New custom tab on the my account page.
+ * Add a custom tab to the WooCommerce My Account menu.
  *
- * @since    1.0.0
- * @param array $items
+ * @since 2.0.0
+ * @param array $items Existing menu items.
  * @return array
  */
 function add_custom_my_account_tab( array $items = array() ) {
-
-    $items['pie-testing-platform'] = __( 'Tests', 'pie-testing-platform' );
+	$items['presstest'] = __( 'Tests', 'presstest-companion' );
 	return $items;
-
 }
 
 /**
- * Add content to the new tab.
- * 
- * @since    1.0.0
+ * Output the content for the custom My Account tab.
+ *
+ * @since 2.0.0
  * @return void
  */
 function add_custom_tab_content() {
-
-	include_once PIE_TESTING_PLATFORM_FILE_PATH . 'templates/my-account/main.php';
-    
+	include_once PRESSTEST_COMPANION_FILE_PATH . 'templates/my-account/main.php';
 }
