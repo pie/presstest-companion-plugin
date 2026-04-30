@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+
+// Strips ANSI terminal colour codes from strings.
+const stripAnsi = str => str.replace( /\x1B\[[0-9;]*m/g, '' );
 import axios from 'axios';
 import {
 	Accordion,
@@ -112,10 +115,10 @@ function Results() {
 					</AccordionItemHeading>
 					<AccordionItemPanel>
 						{error?.message && (
-							<p><b>Message: </b>{error.message}</p>
+							<p><b>Message: </b>{stripAnsi( error.message )}</p>
 						)}
 						{error?.stack && (
-							<p><b>Stack: </b><pre>{error.stack}</pre></p>
+							<p><b>Stack: </b><pre>{stripAnsi( error.stack )}</pre></p>
 						)}
 						{result?.duration !== undefined && (
 							<p><b>Duration: </b>{result.duration}ms</p>
