@@ -89,7 +89,7 @@ function save_report( \WP_REST_Request $request ) {
 	$domain  = esc_url_raw( $request->get_param( 'domain' ) );
 	$browser = sanitize_text_field( $request->get_param( 'browser' ) );
 	$user_id = absint( $request->get_param( 'user_id' ) );
-	$report  = wp_unslash( $request->get_param( 'report' ) );
+	$report  = $request->get_param( 'report' );
 
 	$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->prefix . 'presstest_reports',
