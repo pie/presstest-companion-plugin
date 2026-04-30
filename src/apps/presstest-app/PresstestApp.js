@@ -4,7 +4,7 @@ import Testing from './components/Testing';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import '../../../node_modules/react-tabs/style/react-tabs.scss';
-import '../../sass/apps/my-account-app.scss';
+import '../../sass/apps/presstest-app.scss';
 
 function App() {
   return (
