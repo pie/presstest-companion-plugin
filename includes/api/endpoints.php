@@ -134,8 +134,6 @@ function register_metafields() {
 				'schema' => array(
 					'type'       => 'object',
 					'properties' => array(
-						'domains'          => array( 'type' => 'array' ),
-						'selected_domain'  => array( 'type' => 'string' ),
 						'selected_tests'   => array( 'type' => 'array' ),
 						'selected_browser' => array( 'type' => 'string' ),
 					),

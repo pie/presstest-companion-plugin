@@ -1,82 +1,149 @@
-#my-account-app {
+#presstest-admin-app {
+    #presstest-app {
+        max-width: 900px;
+    }
+
     .content-wrap {
+        padding: 1rem 0;
+
         label {
             margin-right: 1rem;
         }
+
         fieldset {
-            padding: 1rem;
+            padding: 0.75rem 0;
+            border: none;
             display: flex;
             flex-wrap: wrap;
+            align-items: center;
+
             & > div {
                 flex: 2;
             }
+
             label.fieldset-instruction {
                 width: 100%;
+                font-weight: 600;
+                margin-bottom: 0.25rem;
             }
+
             input.input-text {
                 flex: 1;
+                max-width: 400px;
             }
+
             input[type="checkbox"] {
                 margin-right: 0.5rem;
             }
-            button {
-                min-width: 5rem;
-                margin-left: 1rem;
+        }
+
+        .field-description {
+            width: 100%;
+            margin-top: 0.25rem;
+            color: #646970;
+            font-size: 0.85rem;
+
+            &--error {
+                color: #d63638;
             }
         }
+
+        .presstest-site-url {
+            margin-bottom: 1rem;
+        }
+
         input[type="submit"] {
             margin-top: 1rem;
         }
+
+        hr {
+            margin: 2rem 0 1.5rem;
+        }
+
+        h3 {
+            margin-bottom: 0.5rem;
+        }
     }
+
     .message-wrap {
+        position: relative;
+        padding: 0.75rem 2.5rem 0.75rem 1rem;
         margin-bottom: 1rem;
+        border-left: 4px solid #72aee6;
+        background: #f0f6fc;
+
+        p {
+            margin: 0;
+        }
+
         .close {
             position: absolute;
             top: 0.5rem;
-            right: 1rem;
+            right: 0.75rem;
             cursor: pointer;
+            color: #646970;
+
+            &:hover {
+                color: #1d2327;
+            }
         }
-        &.woocommerce-error {
-            border-top-color: #d91515;
+
+        &--error {
+            border-left-color: #d63638;
+            background: #fcf0f1;
+        }
+
+        &--success {
+            border-left-color: #00a32a;
+            background: #edfaef;
         }
     }
+
     .accordion {
         .passed {
             border-left: 3px solid #0ec81e;
         }
+
         .failed {
             border-left: 3px solid #d91515;
         }
+
         .pending {
             border-left: 3px solid #eea343;
         }
+
         .accordion__heading {
             overflow: hidden;
         }
+
         pre {
             background-color: #eceaea;
             padding: 5px;
             border: 1px solid #cecaca;
             white-space: pre-wrap;
             overflow: auto;
+
             &:not(.actual) {
                 margin-top: 0;
             }
         }
     }
+
     .loading-spinner {
         width: 30px;
         height: 30px;
-        border: 10px solid #f3f3f3; /* Light grey */
-        border-top: 10px solid #383636; /* Black */
+        border: 10px solid #f3f3f3;
+        border-top: 10px solid #383636;
         border-radius: 50%;
         animation: spinner 1.5s linear infinite;
         margin-top: 1rem;
     }
+
     @keyframes spinner {
         0% {
             transform: rotate(0deg);
         }
+
         100% {
             transform: rotate(360deg);
         }

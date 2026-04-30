@@ -12,25 +12,25 @@
 namespace PIE\PresstestCompanion;
 
 /**
- * Enqueue all frontend scripts and styles.
- *
- * Only loads on WooCommerce account pages to avoid polluting other pages.
+ * Enqueue scripts and styles on the Presstest admin page.
  *
  * @since 2.0.0
  * @return void
  */
-function enqueues_frontend() {
-	if ( ! is_account_page() ) {
+function enqueues_admin() {
+	$screen = get_current_screen();
+
+	if ( ! $screen instanceof \WP_Screen || 'toplevel_page_presstest-companion' !== $screen->id ) {
 		return;
 	}
 
-	$file_path     = PRESSTEST_COMPANION_FILE_PATH . 'build/static/';
-	$enqueue_path  = PRESSTEST_COMPANION_ENQUEUE_PATH . 'build/static/';
-	$user_id       = get_current_user_id();
-	$user_settings = get_user_meta( $user_id, '_presstest_settings', true );
+	$file_path    = PRESSTEST_COMPANION_FILE_PATH . 'build/static/';
+	$enqueue_path = PRESSTEST_COMPANION_ENQUEUE_PATH . 'build/static/';
+	$user_id      = get_current_user_id();
+	$user_meta    = get_user_meta( $user_id, '_presstest_settings', true );
 
-	if ( ! is_array( $user_settings ) ) {
-		$user_settings = array();
+	if ( ! is_array( $user_meta ) ) {
+		$user_meta = array();
 	}
 
 	wp_enqueue_script( 'wp-api' );
@@ -48,23 +48,26 @@ function enqueues_frontend() {
 			$filename,
 			'presstest_companion',
 			array(
-				'user_id'                       => $user_id,
-				'user_settings'                 => $user_settings,
-				'domain_already_exists_message' => __( 'Domain has already been added. Please select it from the dropdown to use it for testing.', 'presstest-companion' ),
-				'domain_invalid_message'        => __( 'Domain is not a valid URL.', 'presstest-companion' ),
-				'domain_added_message'          => __( 'Domain has been successfully added to your list.', 'presstest-companion' ),
-				'domain_not_selected_message'   => __( 'No domain selected.', 'presstest-companion' ),
-				'domain_removed_message'        => __( 'Selected domain has been successfully removed from your list.', 'presstest-companion' ),
-				'tests_run_message'             => __( 'Tests have been queued. Check your reports shortly.', 'presstest-companion' ),
-				'tests_error_message'           => __( 'Failed to run tests. Please check your server settings.', 'presstest-companion' ),
+				'site_url'           => home_url(),
+				'report_url'         => rest_url( 'presstest-companion/v1/report' ),
+				'report_token'       => get_option( 'presstest_companion_report_secret', '' ),
+				'user_settings'      => $user_meta,
+				'tests_run_message'  => __( 'Tests have been queued. Check your reports shortly.', 'presstest-companion' ),
+				'tests_error_message' => __( 'Failed to run tests. Please check the server settings.', 'presstest-companion' ),
 			)
 		);
 	}
 
 	foreach ( glob( $file_path . 'css/*.css' ) as $file ) {
 		$filename = substr( $file, strrpos( $file, '/' ) + 1 );
-		wp_enqueue_style( $filename, $enqueue_path . 'css/' . $filename );
+		wp_enqueue_style(
+			$filename,
+			$enqueue_path . 'css/' . $filename,
+			array(),
+			filemtime( $file_path . 'css/' . $filename )
+		);
 	}
 
 	wp_enqueue_style( 'dashicons' );
 }
+add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueues_admin' );

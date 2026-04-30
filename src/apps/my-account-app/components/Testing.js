@@ -2,14 +2,10 @@ import React, { useEffect, useState } from 'react';
 import useOnChangeEffect from '../hooks/useOnChangeEffect';
 import axios from 'axios';
 import { tests } from '../data/tests';
-import validator from 'validator';
 import Spinner from './Spinner';
 import Select from 'react-select';
 
-const settings              = window.presstest_companion;
-const defaultSelectedDomain  = settings.user_settings.selected_domain  ?? '';
-const defaultDomains         = settings.user_settings.domains          ?? [];
-const defaultSelectedBrowser = settings.user_settings.selected_browser ?? '';
+const settings = window.presstest_companion;
 
 const BROWSERS = [
 	{ value: 'chromium', label: 'Chrome' },
@@ -18,58 +14,25 @@ const BROWSERS = [
 ];
 
 function Testing() {
-	const [domain, updateDomain]                = useState( '' );
-	const [selectedDomain, setSelectedDomain]   = useState( defaultSelectedDomain );
-	const [domains, updateDomains]              = useState( defaultDomains );
 	const [availableTests, updateTests]         = useState( tests );
 	const [selectedTests, updateSelectedTests]  = useState( [] );
-	const [selectedBrowser, setSelectedBrowser] = useState( defaultSelectedBrowser );
+	const [selectedBrowser, setSelectedBrowser] = useState( settings.user_settings?.selected_browser ?? '' );
 	const [isTesting, setTestingStatus]         = useState( false );
-	const [message, updateMessage]              = useState( { type: 'success', message: '' } );
+	const [message, updateMessage]              = useState( { type: '', message: '' } );
+
+	// Keep selectedTests in sync with the checkbox state.
+	useEffect( () => {
+		updateSelectedTests(
+			availableTests
+				.filter( t => t.checked )
+				.map( t => t.value )
+		);
+	}, [availableTests] );
 
 	/**
-	 * Validates the URL in the input field and appends it to the domains list.
-	 *
-	 * @param {object} e Event.
+	 * Persists selected_tests and selected_browser to user meta via the WP REST API.
 	 */
-	function addDomain( e ) {
-		e.preventDefault();
-		updateMessage( {} );
-
-		if ( ! validator.isURL( domain ) ) {
-			updateMessage( { type: 'error', message: settings.domain_invalid_message } );
-		} else if ( -1 !== domains.indexOf( domain ) ) {
-			updateMessage( { type: 'error', message: settings.domain_already_exists_message } );
-		} else {
-			updateDomains( prev => [ ...prev, domain ] );
-			updateDomain( '' );
-			updateMessage( { type: 'message', message: settings.domain_added_message } );
-		}
-	}
-
-	/**
-	 * Removes the currently selected domain from the list.
-	 *
-	 * @param {object} e Event.
-	 */
-	function removeDomain( e ) {
-		e.preventDefault();
-		updateMessage( {} );
-
-		if ( '' === selectedDomain ) {
-			updateMessage( { type: 'error', message: settings.domain_not_selected_message } );
-			return;
-		}
-
-		updateDomains( prev => prev.filter( d => d !== selectedDomain ) );
-		updateMessage( { type: 'message', message: settings.domain_removed_message } );
-		setSelectedDomain( '' );
-	}
-
-	/**
-	 * Saves current settings to user meta via the WP REST API.
-	 */
-	const saveSettings = async () => {
+	const saveUserMeta = async () => {
 		const axiosInstance = axios.create();
 		axiosInstance.interceptors.request.use( config => {
 			config.headers['X-WP-Nonce'] = window.wpApiSettings.nonce;
@@ -77,23 +40,17 @@ function Testing() {
 		} );
 
 		try {
-			const response = await axiosInstance.post(
+			await axiosInstance.post(
 				window.wpApiSettings.root + 'wp/v2/users/me',
 				{
 					meta: {
 						_presstest_settings: {
-							domains,
-							selected_domain:  selectedDomain,
 							selected_tests:   selectedTests,
 							selected_browser: selectedBrowser,
 						},
 					},
 				}
 			);
-
-			if ( 200 !== response.status ) {
-				throw new Error( 'Failed to save settings.' );
-			}
 		} catch ( error ) {
 			console.error( error.message );
 		}
@@ -112,15 +69,6 @@ function Testing() {
 		} );
 	}
 
-	// Keep selectedTests in sync with the checkbox state.
-	useEffect( () => {
-		updateSelectedTests(
-			availableTests
-				.filter( t => t.checked )
-				.map( t => t.value )
-		);
-	}, [availableTests] );
-
 	/**
 	 * Sends a proxied test run request through the WordPress REST API.
 	 * The Presstest API key is resolved server-side and never exposed here.
@@ -130,11 +78,6 @@ function Testing() {
 	const runTests = async ( e ) => {
 		e.preventDefault();
 		updateMessage( {} );
-
-		if ( '' === selectedDomain ) {
-			updateMessage( { type: 'error', message: settings.domain_not_selected_message } );
-			return;
-		}
 
 		if ( 0 === selectedTests.length ) {
 			updateMessage( { type: 'error', message: 'Please select at least one test suite.' } );
@@ -153,7 +96,7 @@ function Testing() {
 			const response = await axiosInstance.post(
 				window.wpApiSettings.root + 'presstest-companion/v1/run',
 				{
-					url:     selectedDomain,
+					url:     settings.site_url,
 					tests:   selectedTests.join( ',' ),
 					browser: selectedBrowser,
 				}
@@ -164,54 +107,33 @@ function Testing() {
 			}
 
 			setTestingStatus( false );
-			updateMessage( { type: 'message', message: settings.tests_run_message } );
+			updateMessage( { type: 'success', message: settings.tests_run_message } );
 		} catch ( error ) {
 			setTestingStatus( false );
 			const msg = error.response?.data?.message ?? error.message;
-			updateMessage( { type: 'error', message: msg + ': See console for more information.' } );
+			updateMessage( { type: 'error', message: msg + ' See console for more information.' } );
 		}
 	};
 
-	// Auto-save settings whenever relevant state changes (skips the initial mount).
+	// Auto-save user preferences whenever they change (skips the initial mount).
 	useOnChangeEffect( () => {
-		saveSettings();
-	}, [domains, selectedDomain, selectedTests, selectedBrowser] );
+		saveUserMeta();
+	}, [selectedTests, selectedBrowser] );
 
-	const domainOptions         = domains.map( d => ( { value: d, label: d } ) );
-	const selectedDomainOption  = domainOptions.find( o => o.value === selectedDomain ) ?? null;
 	const selectedBrowserOption = BROWSERS.find( b => b.value === selectedBrowser ) ?? null;
 
 	return (
 		<div className='content-wrap'>
-			{ !! message.message && (
-				<div className={'message-wrap woocommerce-' + message.type}>
+			{ '' !== message.message && (
+				<div className={'message-wrap message-wrap--' + ( 'error' === message.type ? 'error' : 'success' )}>
 					<p>{message.message}</p>
 					<i className='close dashicons dashicons-dismiss' onClick={() => updateMessage( {} )}></i>
 				</div>
 			)}
+			<p className='presstest-site-url'>
+				Running tests against: <strong>{settings.site_url}</strong>
+			</p>
 			<form>
-				<fieldset>
-					<label htmlFor='new-domain' className='fieldset-instruction'>Add new Domain:</label>
-					<input
-						type='url'
-						id='new-domain'
-						className='input-text'
-						onChange={e => updateDomain( e.target.value )}
-						value={domain}
-					/>
-					<button id='add-domain' className='button primary' onClick={e => addDomain( e )} disabled={isTesting}>Add</button>
-				</fieldset>
-				<fieldset>
-					<label htmlFor='domains' className='fieldset-instruction'>Select domain to test:</label>
-					<Select
-						value={selectedDomainOption}
-						onChange={option => setSelectedDomain( option?.value ?? '' )}
-						name='domains'
-						options={domainOptions}
-						menuPortalTarget={document.body}
-					/>
-					<button id='remove-domain' className='button primary' onClick={e => removeDomain( e )} disabled={isTesting}>Remove</button>
-				</fieldset>
 				<fieldset>
 					<label className='fieldset-instruction'>Select tests to run:</label>
 					{availableTests.map( ( { name, value, checked }, index ) => (
@@ -228,10 +150,11 @@ function Testing() {
 					))}
 				</fieldset>
 				<fieldset>
-					<label htmlFor='browsers' className='fieldset-instruction'>Select browser to run tests in:</label>
+					<label htmlFor='browsers' className='fieldset-instruction'>Select browser:</label>
 					<Select
 						value={selectedBrowserOption}
 						onChange={option => setSelectedBrowser( option?.value ?? '' )}
+						inputId='browsers'
 						name='browsers'
 						options={BROWSERS}
 						menuPortalTarget={document.body}

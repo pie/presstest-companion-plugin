@@ -2,25 +2,29 @@ import React from 'react';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import Testing from './components/Testing';
 import Reports from './components/Reports';
+import Settings from './components/Settings';
 import '../../../node_modules/react-tabs/style/react-tabs.scss';
 import '../../sass/apps/my-account-app.scss';
 
 function App() {
   return (
-    <div>
-      <h2>Presstest</h2>
+    <div id='presstest-app'>
       <Tabs>
         <TabList>
-          <Tab>Testing</Tab>
+          <Tab>Run Tests</Tab>
           <Tab>Reports</Tab>
+          <Tab>Settings</Tab>
         </TabList>
 
-        {/* Force rendering here to maintain state for user options when switching between tabs */}
+        {/* forceRender keeps Testing state alive when switching tabs */}
         <TabPanel forceRender>
           <Testing />
         </TabPanel>
         <TabPanel>
           <Reports />
+        </TabPanel>
+        <TabPanel>
+          <Settings />
         </TabPanel>
       </Tabs>
     </div>
