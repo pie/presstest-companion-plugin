@@ -132,6 +132,9 @@ function render_settings_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
 	}
+
+	$report_secret = get_option( 'presstest_companion_report_secret', '' );
+	$report_url    = rest_url( 'presstest-companion/v1/report' );
 	?>
 	<div class="wrap">
 		<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
@@ -142,6 +145,30 @@ function render_settings_page() {
 			submit_button( __( 'Save Settings', 'presstest-companion' ) );
 			?>
 		</form>
+
+		<hr />
+		<h2><?php esc_html_e( 'Report Endpoint', 'presstest-companion' ); ?></h2>
+		<p><?php esc_html_e( 'The Presstest server uses these values to authenticate its results callback to this site. They are managed automatically — no action is required.', 'presstest-companion' ); ?></p>
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Report URL', 'presstest-companion' ); ?></th>
+				<td>
+					<input type="text" class="regular-text" value="<?php echo esc_url( $report_url ); ?>" readonly />
+					<p class="description"><?php esc_html_e( 'This site\'s REST endpoint — the Presstest server posts results here automatically.', 'presstest-companion' ); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Report Token', 'presstest-companion' ); ?></th>
+				<td>
+					<?php if ( '' !== $report_secret ) : ?>
+						<input type="password" class="regular-text" value="<?php echo esc_attr( $report_secret ); ?>" readonly />
+						<p class="description"><?php esc_html_e( 'Sent with each test job and validated by this endpoint. Generated automatically on plugin activation.', 'presstest-companion' ); ?></p>
+					<?php else : ?>
+						<p class="description" style="color:#d63638;"><?php esc_html_e( 'No token found. Deactivate and reactivate the plugin to generate one.', 'presstest-companion' ); ?></p>
+					<?php endif; ?>
+				</td>
+			</tr>
+		</table>
 	</div>
 	<?php
 }

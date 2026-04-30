@@ -60,7 +60,8 @@ function register_endpoints() {
 	);
 
 	// Save a test report sent from the Presstest server.
-	// Requires authentication via a WordPress Application Password.
+	// Authenticated via X-Presstest-Token header — the secret is generated on
+	// plugin activation and sent with every job request from trigger_test_run().
 	register_rest_route(
 		'presstest-companion/v1',
 		'report/',
@@ -68,7 +69,9 @@ function register_endpoints() {
 			'methods'             => \WP_REST_Server::CREATABLE,
 			'callback'            => __NAMESPACE__ . '\save_report',
 			'permission_callback' => function () {
-				return is_user_logged_in();
+				$provided = sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_PRESSTEST_TOKEN'] ?? '' ) );
+				$secret   = get_option( 'presstest_companion_report_secret', '' );
+				return '' !== $secret && hash_equals( $secret, $provided );
 			},
 			'args'                => array(
 				'domain'  => array(

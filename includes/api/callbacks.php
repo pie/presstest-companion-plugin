@@ -43,10 +43,14 @@ function trigger_test_run( \WP_REST_Request $request ) {
 			),
 			'body'    => wp_json_encode(
 				array(
-					'url'     => $request->get_param( 'url' ),
-					'user_id' => get_current_user_id(),
-					'tests'   => $request->get_param( 'tests' ),
-					'browser' => $request->get_param( 'browser' ),
+					'url'           => $request->get_param( 'url' ),
+					'user_id'       => get_current_user_id(),
+					'tests'         => $request->get_param( 'tests' ),
+					'browser'       => $request->get_param( 'browser' ),
+					// Sent to the Presstest server so it can authenticate its callback
+					// POST back to this site's /report endpoint via X-Presstest-Token.
+					// Resolved here server-side — never exposed to the browser.
+					'report_secret' => get_option( 'presstest_companion_report_secret', '' ),
 				)
 			),
 			'timeout' => 15,

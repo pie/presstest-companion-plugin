@@ -20,6 +20,25 @@ namespace PIE\PresstestCompanion;
 function activate() {
 	update_option( 'woocommerce_queue_flush_rewrite_rules', 'true' );
 	create_database_tables();
+	generate_report_secret();
+}
+
+/**
+ * Generate a cryptographically random report secret on first activation.
+ *
+ * The secret authenticates callbacks from the Presstest server — it is sent
+ * with every test request and validated by the /report REST endpoint via the
+ * X-Presstest-Token header. Never overwrites an existing value so the secret
+ * survives deactivation/reactivation cycles.
+ *
+ * @since 2.0.0
+ * @return void
+ */
+function generate_report_secret() {
+	if ( '' !== get_option( 'presstest_companion_report_secret', '' ) ) {
+		return;
+	}
+	update_option( 'presstest_companion_report_secret', bin2hex( random_bytes( 32 ) ) );
 }
 
 /**
