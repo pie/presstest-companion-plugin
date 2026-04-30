@@ -165,7 +165,24 @@ function Results() {
 	 * @returns {JSX.Element}
 	 */
 	function renderReport( row ) {
-		const report = JSON.parse( row.report );
+		let report;
+		try {
+			report = JSON.parse( row.report );
+		} catch ( e ) {
+			return (
+				<AccordionItem key={row.id} className='failed'>
+					<AccordionItemHeading>
+						<AccordionItemButton>
+							{row.domain} ({row.browser}) &mdash; {row.date} &mdash; corrupt report
+						</AccordionItemButton>
+					</AccordionItemHeading>
+					<AccordionItemPanel>
+						<p>This report could not be parsed and should be deleted.</p>
+					</AccordionItemPanel>
+				</AccordionItem>
+			);
+		}
+
 		const stats  = report.stats ?? {};
 		const total  = ( stats.expected ?? 0 ) + ( stats.unexpected ?? 0 ) + ( stats.skipped ?? 0 ) + ( stats.flaky ?? 0 );
 		const status = reportStatus( report );
