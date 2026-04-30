@@ -79,6 +79,5 @@ function render_admin_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
 	}
-	$screen = get_current_screen();
 	echo '<div class="wrap"><div id="presstest-admin-app"></div></div>';
 }
