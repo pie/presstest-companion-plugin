@@ -79,5 +79,8 @@ function render_admin_page() {
 	if ( ! current_user_can( 'manage_options' ) ) {
 		return;
 	}
+	$screen = get_current_screen();
+	// Temporary debug — remove once confirmed working.
+	echo '<p style="color:red">Screen ID: ' . esc_html( $screen ? $screen->id : 'null' ) . '</p>';
 	echo '<div class="wrap"><div id="presstest-admin-app"></div></div>';
 }

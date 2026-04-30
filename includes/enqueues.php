@@ -24,49 +24,43 @@ function enqueues_admin() {
 		return;
 	}
 
-	$file_path    = PRESSTEST_COMPANION_FILE_PATH . 'build/static/';
-	$enqueue_path = PRESSTEST_COMPANION_ENQUEUE_PATH . 'build/static/';
-	$user_id      = get_current_user_id();
-	$user_meta    = get_user_meta( $user_id, '_presstest_settings', true );
+	$build_path = PRESSTEST_COMPANION_FILE_PATH . 'build/';
+	$build_url  = PRESSTEST_COMPANION_ENQUEUE_PATH . 'build/';
+	$asset      = require $build_path . 'index.asset.php';
+	$user_id    = get_current_user_id();
+	$user_meta  = get_user_meta( $user_id, '_presstest_settings', true );
 
 	if ( ! is_array( $user_meta ) ) {
 		$user_meta = array();
 	}
 
-	wp_enqueue_script( 'wp-api' );
+	wp_enqueue_script(
+		'presstest-companion-app',
+		$build_url . 'index.js',
+		array_merge( $asset['dependencies'], array( 'wp-api' ) ),
+		filemtime( $build_path . 'index.js' ),
+		true
+	);
 
-	foreach ( glob( $file_path . 'js/*.js' ) as $file ) {
-		$filename = substr( $file, strrpos( $file, '/' ) + 1 );
-		wp_enqueue_script(
-			$filename,
-			$enqueue_path . 'js/' . $filename,
-			array( 'wp-api' ),
-			filemtime( $file_path . 'js/' . $filename ),
-			true
-		);
-		wp_localize_script(
-			$filename,
-			'presstest_companion',
-			array(
-				'site_url'           => home_url(),
-				'report_url'         => rest_url( 'presstest-companion/v1/report' ),
-				'report_token'       => get_option( 'presstest_companion_report_secret', '' ),
-				'user_settings'      => $user_meta,
-				'tests_run_message'  => __( 'Tests have been queued. Check your reports shortly.', 'presstest-companion' ),
-				'tests_error_message' => __( 'Failed to run tests. Please check the server settings.', 'presstest-companion' ),
-			)
-		);
-	}
+	wp_localize_script(
+		'presstest-companion-app',
+		'presstest_companion',
+		array(
+			'site_url'            => home_url(),
+			'report_url'          => rest_url( 'presstest-companion/v1/report' ),
+			'report_token'        => get_option( 'presstest_companion_report_secret', '' ),
+			'user_settings'       => $user_meta,
+			'tests_run_message'   => __( 'Tests have been queued. Check your reports shortly.', 'presstest-companion' ),
+			'tests_error_message' => __( 'Failed to run tests. Please check the server settings.', 'presstest-companion' ),
+		)
+	);
 
-	foreach ( glob( $file_path . 'css/*.css' ) as $file ) {
-		$filename = substr( $file, strrpos( $file, '/' ) + 1 );
-		wp_enqueue_style(
-			$filename,
-			$enqueue_path . 'css/' . $filename,
-			array(),
-			filemtime( $file_path . 'css/' . $filename )
-		);
-	}
+	wp_enqueue_style(
+		'presstest-companion-app',
+		$build_url . 'index.css',
+		array(),
+		filemtime( $build_path . 'index.css' )
+	);
 
 	wp_enqueue_style( 'dashicons' );
 }
