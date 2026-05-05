@@ -62,6 +62,7 @@ function Results() {
 	const [loading, setLoading]               = useState( true );
 	const [currentPage, setCurrentPage]       = useState( 1 );
 	const [totalPages, setTotalPages]         = useState( 1 );
+	const [deleting, setDeleting]             = useState( null );
 
 	useEffect( () => {
 		setLoading( true );
@@ -92,6 +93,33 @@ function Results() {
 	useEffect( () => {
 		setCurrentResults( allResults.slice( ( currentPage - 1 ) * 10, currentPage * 10 ) );
 	}, [currentPage, allResults] );
+
+	/**
+	 * Delete a report by ID and remove it from local state.
+	 *
+	 * @param {number} id Report ID.
+	 */
+	async function handleDelete( id ) {
+		setDeleting( id );
+
+		const axiosInstance = axios.create();
+		axiosInstance.interceptors.request.use( config => {
+			config.headers['X-WP-Nonce'] = window.wpApiSettings.nonce;
+			return config;
+		} );
+
+		try {
+			await axiosInstance.delete( window.wpApiSettings.root + 'presstest-companion/v1/reports/' + id );
+			const updated = allResults.filter( r => r.id !== id );
+			setAllResults( updated );
+			setTotalPages( Math.ceil( updated.length / 10 ) );
+			setCurrentPage( p => Math.min( p, Math.ceil( updated.length / 10 ) || 1 ) );
+		} catch ( error ) {
+			console.error( error );
+		}
+
+		setDeleting( null );
+	}
 
 	/**
 	 * Render the accordion panel for a single spec (individual test).
@@ -181,6 +209,13 @@ function Results() {
 					</AccordionItemHeading>
 					<AccordionItemPanel>
 						<p>This report could not be parsed and should be deleted.</p>
+						<button
+							className='button delete-report'
+							disabled={deleting === row.id}
+							onClick={() => handleDelete( row.id )}
+						>
+							{deleting === row.id ? 'Deleting…' : 'Delete report'}
+						</button>
 					</AccordionItemPanel>
 				</AccordionItem>
 			);
@@ -198,6 +233,13 @@ function Results() {
 					</AccordionItemButton>
 				</AccordionItemHeading>
 				<AccordionItemPanel>
+					<button
+						className='button delete-report'
+						disabled={deleting === row.id}
+						onClick={() => handleDelete( row.id )}
+					>
+						{deleting === row.id ? 'Deleting…' : 'Delete report'}
+					</button>
 					<ul>
 						<li>Total: {total}</li>
 						{stats.expected > 0 && <li>Passed: {stats.expected}</li>}

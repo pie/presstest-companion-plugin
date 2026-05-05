@@ -3,9 +3,10 @@
  * Register REST API endpoints required by the plugin.
  *
  * Routes:
- *   POST presstest-companion/v1/run     — proxy test run to the Presstest server
- *   POST presstest-companion/v1/report  — save a report sent from the Presstest server
- *   GET  presstest-companion/v1/reports — retrieve all reports for the current user
+ *   POST   presstest-companion/v1/run          — proxy test run to the Presstest server
+ *   POST   presstest-companion/v1/report        — save a report sent from the Presstest server
+ *   GET    presstest-companion/v1/reports       — retrieve all reports for the current user
+ *   DELETE presstest-companion/v1/reports/{id}  — delete a single report belonging to the current user
  *
  * @link       https://pie.co.de
  * @since      2.0.0
@@ -112,6 +113,27 @@ function register_endpoints() {
 			'permission_callback' => function () {
 				return is_user_logged_in();
 			},
+		)
+	);
+
+	// Delete a single report belonging to the currently authenticated user.
+	register_rest_route(
+		'presstest-companion/v1',
+		'reports/(?P<id>\d+)',
+		array(
+			'methods'             => \WP_REST_Server::DELETABLE,
+			'callback'            => __NAMESPACE__ . '\delete_report',
+			'permission_callback' => function () {
+				return is_user_logged_in();
+			},
+			'args'                => array(
+				'id' => array(
+					'required'          => true,
+					'validate_callback' => function ( $param ) {
+						return is_numeric( $param ) && absint( $param ) > 0;
+					},
+				),
+			),
 		)
 	);
 }

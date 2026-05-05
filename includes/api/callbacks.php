@@ -105,10 +105,43 @@ function save_report( \WP_REST_Request $request ) {
 }
 
 /**
- * Get all test reports for the currently authenticated user.
+ * Delete a single report belonging to the currently authenticated user.
  *
  * @since 2.0.0
  * @param \WP_REST_Request $request Incoming REST request.
+ * @return \WP_REST_Response|\WP_Error
+ */
+function delete_report( \WP_REST_Request $request ) {
+	global $wpdb;
+
+	$id      = absint( $request->get_param( 'id' ) );
+	$user_id = get_current_user_id();
+	$table   = $wpdb->prefix . 'presstest_reports';
+
+	$deleted = $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$table,
+		array(
+			'id'      => $id,
+			'user_id' => $user_id,
+		),
+		array( '%d', '%d' )
+	);
+
+	if ( false === $deleted ) {
+		return new \WP_Error( 'delete_failed', __( 'Could not delete the report.', 'presstest-companion' ), array( 'status' => 500 ) );
+	}
+
+	if ( 0 === $deleted ) {
+		return new \WP_Error( 'not_found', __( 'Report not found.', 'presstest-companion' ), array( 'status' => 404 ) );
+	}
+
+	return rest_ensure_response( array( 'deleted' => true ) );
+}
+
+/**
+ * Get all test reports for the currently authenticated user.
+ *
+ * @since 2.0.0
  * @return array
  */
 function get_reports() {
