@@ -1,0 +1,90 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write  # needed to create releases and push update.json
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Build JS/CSS assets
+        run: npm ci && npm run build
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Install Composer dependencies (production only)
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: Build release ZIP
+        run: |
+          zip -r presstest-companion.zip . \
+            --exclude "*.git*" \
+            --exclude "src/*" \
+            --exclude "node_modules/*" \
+            --exclude ".github/*" \
+            --exclude "composer.json" \
+            --exclude "composer.lock" \
+            --exclude "package.json" \
+            --exclude "package-lock.json" \
+            --exclude ".distignore"
+
+      - name: Update update.json
+        run: |
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/presstest-companion.zip"
+          DATE=$(date -u +"%Y-%m-%d %H:%M:%S")
+          jq \
+            --arg version "$VERSION" \
+            --arg download_url "$DOWNLOAD_URL" \
+            --arg last_updated "$DATE" \
+            '.version = $version | .download_url = $download_url | .last_updated = $last_updated' \
+            update.json > update.json.tmp && mv update.json.tmp update.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: presstest-companion.zip
+          generate_release_notes: true
+
+      - name: Commit updated update.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add update.json
+          git commit -m "chore: bump update.json to ${{ github.ref_name }}"
+          git push origin HEAD:production
+
+      - name: Deploy update.json to droplet
+        env:
+          SSH_KEY: ${{ secrets.DROPLET_SSH_KEY }}
+        run: |
+          echo "$SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          scp -i /tmp/deploy_key \
+            -o StrictHostKeyChecking=no \
+            update.json \
+            root@api.presstest.io:/var/www/presstest-update/presstest-companion.json
+          rm /tmp/deploy_key

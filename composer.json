@@ -1,0 +1,14 @@
+{
+    "name": "pie/presstest-companion",
+    "description": "WordPress companion plugin for Presstest",
+    "type": "wordpress-plugin",
+    "require": {
+        "yahnis-elsts/plugin-update-checker": "^5.5"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "allow-plugins": {
+            "composer/installers": true
+        }
+    }
+}

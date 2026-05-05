@@ -1,0 +1,9 @@
+src/
+node_modules/
+.github/
+.git/
+.distignore
+composer.json
+package.json
+package-lock.json
+composer.lock

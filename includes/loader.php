@@ -29,6 +29,7 @@ function load_plugin() {
  * @return void
  */
 function load_dependencies() {
+	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/updater.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/i18n.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/enqueues.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/settings.php';
