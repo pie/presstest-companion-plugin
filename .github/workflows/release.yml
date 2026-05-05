@@ -77,14 +77,12 @@ jobs:
           git commit -m "chore: bump update.json to ${{ github.ref_name }}"
           git push origin HEAD:production
 
+      - uses: pie/.github/actions/add-ssh-config@main
+        name: Add SSH key
+        with:
+          ssh-user: root
+          ssh-host: api.presstest.io
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - name: Deploy update.json to droplet
-        env:
-          SSH_KEY: ${{ secrets.DROPLET_SSH_KEY }}
-        run: |
-          echo "$SSH_KEY" > /tmp/deploy_key
-          chmod 600 /tmp/deploy_key
-          scp -i /tmp/deploy_key \
-            -o StrictHostKeyChecking=no \
-            update.json \
-            root@api.presstest.io:/var/www/presstest-update/presstest-companion.json
-          rm /tmp/deploy_key
+        run: scp update.json root@api.presstest.io:/var/www/presstest-update/presstest-companion.json
