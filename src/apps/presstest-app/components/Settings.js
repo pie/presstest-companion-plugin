@@ -4,11 +4,10 @@ import axios from 'axios';
 const settings = window.presstest_companion;
 
 function Settings() {
-	const [serverUrl, setServerUrl] = useState( '' );
-	const [apiKey, setApiKey]       = useState( '' );
-	const [loading, setLoading]     = useState( true );
-	const [saving, setSaving]       = useState( false );
-	const [message, setMessage]     = useState( { type: '', text: '' } );
+	const [apiKey, setApiKey]   = useState( '' );
+	const [loading, setLoading] = useState( true );
+	const [saving, setSaving]   = useState( false );
+	const [message, setMessage] = useState( { type: '', text: '' } );
 
 	useEffect( () => {
 		const axiosInstance = axios.create();
@@ -20,7 +19,6 @@ function Settings() {
 		axiosInstance
 			.get( window.wpApiSettings.root + 'wp/v2/settings' )
 			.then( res => {
-				setServerUrl( res.data.presstest_companion_server_url ?? '' );
 				setApiKey( res.data.presstest_companion_api_key ?? '' );
 				setLoading( false );
 			} )
@@ -44,10 +42,7 @@ function Settings() {
 		try {
 			await axiosInstance.post(
 				window.wpApiSettings.root + 'wp/v2/settings',
-				{
-					presstest_companion_server_url: serverUrl,
-					presstest_companion_api_key:    apiKey,
-				}
+				{ presstest_companion_api_key: apiKey }
 			);
 			setMessage( { type: 'success', text: 'Settings saved.' } );
 		} catch ( err ) {
@@ -72,18 +67,6 @@ function Settings() {
 			)}
 			<form onSubmit={saveSettings}>
 				<fieldset>
-					<label htmlFor='server-url' className='fieldset-instruction'>Server URL:</label>
-					<input
-						type='url'
-						id='server-url'
-						className='input-text'
-						value={serverUrl}
-						onChange={e => setServerUrl( e.target.value )}
-						placeholder='https://your-presstest-server.com'
-					/>
-					<p className='field-description'>The full URL of your Presstest server (without a trailing slash).</p>
-				</fieldset>
-				<fieldset>
 					<label htmlFor='api-key' className='fieldset-instruction'>API Key:</label>
 					<input
 						type='password'
@@ -105,8 +88,17 @@ function Settings() {
 
 			<hr />
 
-			<h3>Report Endpoint</h3>
-			<p>The Presstest server uses these values to authenticate its results callback to this site. They are managed automatically &mdash; no action is required.</p>
+			<h3>Server &amp; Report Endpoint</h3>
+			<p>These values are managed automatically &mdash; no action is required.</p>
+			<fieldset>
+				<label className='fieldset-instruction'>Server URL:</label>
+				<input
+					type='text'
+					className='input-text'
+					value={settings.server_url}
+					readOnly
+				/>
+			</fieldset>
 			<fieldset>
 				<label className='fieldset-instruction'>Report URL:</label>
 				<input
@@ -115,7 +107,7 @@ function Settings() {
 					value={settings.report_url}
 					readOnly
 				/>
-				<p className='field-description'>This site&rsquo;s REST endpoint — the Presstest server posts results here automatically.</p>
+				<p className='field-description'>This site&rsquo;s REST endpoint &mdash; the Presstest server posts results here automatically.</p>
 			</fieldset>
 			<fieldset>
 				<label className='fieldset-instruction'>Report Token:</label>

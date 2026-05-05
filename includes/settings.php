@@ -47,17 +47,6 @@ add_action( 'admin_menu', __NAMESPACE__ . '\add_admin_page' );
 function register_settings() {
 	register_setting(
 		'presstest_companion',
-		'presstest_companion_server_url',
-		array(
-			'type'              => 'string',
-			'sanitize_callback' => 'esc_url_raw',
-			'default'           => '',
-			'show_in_rest'      => true,
-		)
-	);
-
-	register_setting(
-		'presstest_companion',
 		'presstest_companion_api_key',
 		array(
 			'type'              => 'string',

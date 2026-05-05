@@ -47,6 +47,7 @@ function enqueues_admin() {
 		'presstest_companion',
 		array(
 			'site_url'            => home_url(),
+			'server_url'          => PRESSTEST_SERVER_URL,
 			'report_url'          => rest_url( 'presstest-companion/v1/report' ),
 			'report_token'        => get_option( 'presstest_companion_report_secret', '' ),
 			'user_settings'       => $user_meta,

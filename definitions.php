@@ -18,3 +18,6 @@ if ( ! defined( 'PRESSTEST_COMPANION_ENQUEUE_PATH' ) ) {
 if ( ! defined( 'PRESSTEST_COMPANION_FILE_PATH' ) ) {
 	define( 'PRESSTEST_COMPANION_FILE_PATH', plugin_dir_path( __FILE__ ) );
 }
+if ( ! defined( 'PRESSTEST_SERVER_URL' ) ) {
+	define( 'PRESSTEST_SERVER_URL', 'https://api.presstest.io' );
+}

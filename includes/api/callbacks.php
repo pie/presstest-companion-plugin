@@ -23,19 +23,18 @@ namespace PIE\PresstestCompanion;
  * @return \WP_REST_Response|\WP_Error
  */
 function trigger_test_run( \WP_REST_Request $request ) {
-	$server_url = get_option( 'presstest_companion_server_url', '' );
-	$api_key    = get_option( 'presstest_companion_api_key', '' );
+	$api_key = get_option( 'presstest_companion_api_key', '' );
 
-	if ( '' === $server_url || '' === $api_key ) {
+	if ( '' === $api_key ) {
 		return new \WP_Error(
 			'presstest_not_configured',
-			__( 'Presstest server is not configured. Please update the plugin settings.', 'presstest-companion' ),
+			__( 'Presstest API key is not configured. Please update the plugin settings.', 'presstest-companion' ),
 			array( 'status' => 500 )
 		);
 	}
 
 	$response = wp_remote_post(
-		trailingslashit( $server_url ) . 'api.php',
+		trailingslashit( PRESSTEST_SERVER_URL ) . 'api.php',
 		array(
 			'headers' => array(
 				'Content-Type' => 'application/json',
@@ -112,7 +111,7 @@ function save_report( \WP_REST_Request $request ) {
  * @param \WP_REST_Request $request Incoming REST request.
  * @return array
  */
-function get_reports( \WP_REST_Request $request ) {
+function get_reports() {
 	global $wpdb;
 
 	$user_id = get_current_user_id();
