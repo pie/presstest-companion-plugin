@@ -91,4 +91,4 @@ jobs:
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy update.json to droplet
-        run: scp update.json root@api.presstest.io:/var/www/presstest-update/presstest-companion.json
+        run: scp update.json server:/var/www/presstest-update/presstest-companion.json
