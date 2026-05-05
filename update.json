@@ -12,6 +12,6 @@
   "download_url": "https://github.com/pie/presstest-companion-plugin/releases/download/1.0.2/presstest-companion.zip",
   "sections": {
     "description": "Connect your WordPress site to your Presstest server and run automated browser tests from your admin dashboard.",
-    "changelog": "<h4>2.0.0</h4><ul><li>Initial release.</li></ul>"
+    "changelog": "<h4>1.0.2</h4><ul><li>See <a href=\"https://github.com/pie/presstest-companion-plugin/releases/tag/1.0.2\">release notes</a> for details.</li></ul>"
   }
 }

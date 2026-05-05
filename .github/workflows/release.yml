@@ -21,6 +21,11 @@ jobs:
       - name: Set version from tag
         run: echo "VERSION=$GITHUB_REF_NAME" >> $GITHUB_ENV
 
+      - name: Bump version in plugin files
+        run: |
+          sed -i "s/Version:           [0-9]\+\.[0-9]\+\.[0-9]\+/Version:           $VERSION/" presstest-companion.php
+          sed -i "s/define( 'PRESSTEST_COMPANION_VERSION', '[0-9]\+\.[0-9]\+\.[0-9]\+' )/define( 'PRESSTEST_COMPANION_VERSION', '$VERSION' )/" definitions.php
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
@@ -60,7 +65,8 @@ jobs:
             --arg version "$VERSION" \
             --arg download_url "$DOWNLOAD_URL" \
             --arg last_updated "$DATE" \
-            '.version = $version | .download_url = $download_url | .last_updated = $last_updated' \
+            --arg changelog "<h4>$VERSION</h4><ul><li>See <a href=\"https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}\">release notes</a> for details.</li></ul>" \
+            '.version = $version | .download_url = $download_url | .last_updated = $last_updated | .sections.changelog = $changelog' \
             update.json > update.json.tmp && mv update.json.tmp update.json
 
       - name: Create GitHub Release
@@ -69,12 +75,12 @@ jobs:
           files: presstest-companion.zip
           generate_release_notes: true
 
-      - name: Commit updated update.json
+      - name: Commit version bumps and updated update.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add update.json
-          git commit -m "chore: bump update.json to ${{ github.ref_name }}"
+          git add presstest-companion.php definitions.php update.json
+          git commit -m "chore: bump version to ${{ github.ref_name }}"
           git push origin HEAD:production
 
       - uses: pie/.github/actions/add-ssh-config@main
