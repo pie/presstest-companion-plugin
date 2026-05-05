@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write  # needed to create releases and push update.json
+      contents: write   # needed to create releases and push version bumps
+      workflows: write  # needed to push commits that touch workflow files
 
     steps:
       - name: Checkout
