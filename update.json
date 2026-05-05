@@ -1,17 +1,17 @@
 {
   "name": "Presstest Companion",
   "slug": "presstest-companion",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "homepage": "https://presstest.io",
   "author": "<a href=\"https://pie.co.de\">PIE Web Ltd</a>",
   "author_homepage": "https://pie.co.de",
   "requires": "6.0",
   "tested": "6.7",
   "requires_php": "8.0",
-  "last_updated": "2026-05-05 10:40:08",
-  "download_url": "https://github.com/pie/presstest-companion-plugin/releases/download/1.0.4/presstest-companion.zip",
+  "last_updated": "2026-05-05 10:57:01",
+  "download_url": "https://github.com/pie/presstest-companion-plugin/releases/download/1.0.6/presstest-companion.zip",
   "sections": {
     "description": "Connect your WordPress site to your Presstest server and run automated browser tests from your admin dashboard.",
-    "changelog": "<h4>1.0.4</h4><ul><li>See <a href=\"https://github.com/pie/presstest-companion-plugin/releases/tag/1.0.4\">release notes</a> for details.</li></ul>"
+    "changelog": "<h4>1.0.6</h4><ul><li>See <a href=\"https://github.com/pie/presstest-companion-plugin/releases/tag/1.0.6\">release notes</a> for details.</li></ul>"
   }
 }
