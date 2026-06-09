@@ -12,17 +12,19 @@
 namespace PIE\PresstestCompanion;
 
 /**
- * Proxy a test run request to the Presstest server.
+ * Send a test-run request to the Presstest server.
  *
- * Keeps the API key server-side — it is never sent to or exposed in the browser.
- * The WordPress user ID is resolved from the session rather than accepted as a
- * parameter, preventing one user from triggering runs attributed to another.
+ * Shared by both the REST endpoint (interactive runs) and the cron callback
+ * (scheduled runs) so the HTTP logic lives in one place.
  *
  * @since 2.0.0
- * @param \WP_REST_Request $request Incoming REST request.
- * @return \WP_REST_Response|\WP_Error
+ * @param string $url     Full URL of the site to test.
+ * @param string $tests   Space- or comma-separated suite names.
+ * @param string $browser chromium | firefox | webkit.
+ * @param int    $user_id WordPress user ID to attribute the resulting report to.
+ * @return array|\WP_Error Decoded response body on success, WP_Error on failure.
  */
-function trigger_test_run( \WP_REST_Request $request ) {
+function dispatch_presstest_request( $url, $tests, $browser, $user_id ) {
 	$api_key = get_option( 'presstest_companion_api_key', '' );
 
 	if ( '' === $api_key ) {
@@ -42,13 +44,12 @@ function trigger_test_run( \WP_REST_Request $request ) {
 			),
 			'body'    => wp_json_encode(
 				array(
-					'url'           => $request->get_param( 'url' ),
-					'user_id'       => get_current_user_id(),
-					'tests'         => $request->get_param( 'tests' ),
-					'browser'       => $request->get_param( 'browser' ),
-					// Sent to the Presstest server so it can authenticate its callback
-					// POST back to this site's /report endpoint via X-Presstest-Token.
-					// Resolved here server-side — never exposed to the browser.
+					'url'           => $url,
+					'user_id'       => $user_id,
+					'tests'         => $tests,
+					'browser'       => $browser,
+					// Sent so the Presstest server can authenticate its callback POST
+					// back to this site's /report endpoint via X-Presstest-Token.
 					'report_secret' => get_option( 'presstest_companion_report_secret', '' ),
 				)
 			),
@@ -72,7 +73,43 @@ function trigger_test_run( \WP_REST_Request $request ) {
 		return new \WP_Error( 'presstest_error', $message, array( 'status' => $status_code ) );
 	}
 
-	return rest_ensure_response( $body );
+	return $body;
+}
+
+/**
+ * Proxy a test run request to the Presstest server.
+ *
+ * Keeps the API key server-side — it is never sent to or exposed in the browser.
+ * The WordPress user ID is resolved from the session rather than accepted as a
+ * parameter, preventing one user from triggering runs attributed to another.
+ *
+ * @since 2.0.0
+ * @param \WP_REST_Request $request Incoming REST request.
+ * @return \WP_REST_Response|\WP_Error
+ */
+function trigger_test_run( \WP_REST_Request $request ) {
+	$result = dispatch_presstest_request(
+		$request->get_param( 'url' ),
+		$request->get_param( 'tests' ),
+		$request->get_param( 'browser' ),
+		get_current_user_id()
+	);
+
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+
+	return rest_ensure_response( $result );
+}
+
+/**
+ * Return the available cron schedule options for the React settings UI.
+ *
+ * @since 2.0.0
+ * @return \WP_REST_Response
+ */
+function get_schedule_options() {
+	return rest_ensure_response( get_cron_schedule_options() );
 }
 
 /**

@@ -1,6 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const AVAILABLE_TESTS = [
+	{ name: 'WordPress Core',   value: 'wordpress-core' },
+	{ name: 'WooCommerce Core', value: 'woocommerce-core' },
+];
+
+const BROWSERS = [
+	{ value: 'chromium', label: 'Chrome' },
+	{ value: 'firefox',  label: 'Firefox' },
+	{ value: 'webkit',   label: 'Safari' },
+];
+
 const settings = window.presstest_companion;
 
 function Settings() {
@@ -9,6 +20,14 @@ function Settings() {
 	const [saving, setSaving]   = useState( false );
 	const [message, setMessage] = useState( { type: '', text: '' } );
 
+	const [cronEnabled, setCronEnabled]         = useState( false );
+	const [cronSchedule, setCronSchedule]       = useState( 'daily' );
+	const [cronUrl, setCronUrl]                 = useState( '' );
+	const [cronTests, setCronTests]             = useState( [] );
+	const [cronBrowser, setCronBrowser]         = useState( 'chromium' );
+	const [scheduleOptions, setScheduleOptions] = useState( {} );
+	const [currentUserId, setCurrentUserId]     = useState( 0 );
+
 	useEffect( () => {
 		const axiosInstance = axios.create();
 		axiosInstance.interceptors.request.use( config => {
@@ -16,10 +35,28 @@ function Settings() {
 			return config;
 		} );
 
-		axiosInstance
-			.get( window.wpApiSettings.root + 'wp/v2/settings' )
-			.then( res => {
-				setApiKey( res.data.presstest_companion_api_key ?? '' );
+		Promise.all( [
+			axiosInstance.get( window.wpApiSettings.root + 'wp/v2/settings' ),
+			axiosInstance.get( window.wpApiSettings.root + 'presstest-companion/v1/schedules' ),
+			axiosInstance.get( window.wpApiSettings.root + 'wp/v2/users/me?_fields=id' ),
+		] )
+			.then( ( [ settingsRes, schedulesRes, userRes ] ) => {
+				const data = settingsRes.data;
+
+				setApiKey( data.presstest_companion_api_key ?? '' );
+				setCronEnabled( data.presstest_companion_cron_enabled ?? false );
+				setCronSchedule( data.presstest_companion_cron_schedule ?? 'daily' );
+				setCronUrl( data.presstest_companion_cron_url ?? '' );
+				setCronBrowser( data.presstest_companion_cron_browser ?? 'chromium' );
+
+				const rawTests = data.presstest_companion_cron_tests ?? '';
+				setCronTests( rawTests.split( ',' ).map( t => t.trim() ).filter( Boolean ) );
+
+				setScheduleOptions( schedulesRes.data );
+
+				const savedUserId = data.presstest_companion_cron_user_id ?? 0;
+				setCurrentUserId( 0 !== savedUserId ? savedUserId : ( userRes.data.id ?? 0 ) );
+
 				setLoading( false );
 			} )
 			.catch( err => {
@@ -27,6 +64,14 @@ function Settings() {
 				setLoading( false );
 			} );
 	}, [] );
+
+	const toggleCronTest = ( value ) => {
+		setCronTests( prev =>
+			prev.includes( value )
+				? prev.filter( t => t !== value )
+				: [ ...prev, value ]
+		);
+	};
 
 	const saveSettings = async ( e ) => {
 		e.preventDefault();
@@ -42,7 +87,15 @@ function Settings() {
 		try {
 			await axiosInstance.post(
 				window.wpApiSettings.root + 'wp/v2/settings',
-				{ presstest_companion_api_key: apiKey }
+				{
+					presstest_companion_api_key:      apiKey,
+					presstest_companion_cron_enabled:  cronEnabled,
+					presstest_companion_cron_schedule: cronSchedule,
+					presstest_companion_cron_url:      cronUrl,
+					presstest_companion_cron_tests:    cronTests.join( ',' ),
+					presstest_companion_cron_browser:  cronBrowser,
+					presstest_companion_cron_user_id:  currentUserId,
+				}
 			);
 			setMessage( { type: 'success', text: 'Settings saved.' } );
 		} catch ( err ) {
@@ -78,6 +131,75 @@ function Settings() {
 					/>
 					<p className='field-description'>The PRESSTEST_API_KEY value from your Presstest server .env file.</p>
 				</fieldset>
+
+				<hr />
+
+				<h3>Scheduled Tests</h3>
+				<fieldset>
+					<label className='fieldset-instruction checkbox-label'>
+						<input
+							type='checkbox'
+							checked={cronEnabled}
+							onChange={e => setCronEnabled( e.target.checked )}
+						/>
+						Enable scheduled tests
+					</label>
+				</fieldset>
+				<fieldset>
+					<label htmlFor='cron-schedule' className='fieldset-instruction'>Schedule:</label>
+					<select
+						id='cron-schedule'
+						className='input-select'
+						value={cronSchedule}
+						onChange={e => setCronSchedule( e.target.value )}
+					>
+						{ Object.entries( scheduleOptions ).map( ( [ key, opt ] ) => (
+							<option key={key} value={key}>{opt.label}</option>
+						) ) }
+					</select>
+				</fieldset>
+				<fieldset>
+					<label htmlFor='cron-url' className='fieldset-instruction'>URL:</label>
+					<input
+						type='url'
+						id='cron-url'
+						className='input-text'
+						value={cronUrl}
+						onChange={e => setCronUrl( e.target.value )}
+						placeholder='https://example.com'
+					/>
+					<p className='field-description'>The URL to run tests against on each scheduled run.</p>
+				</fieldset>
+				<fieldset>
+					<label className='fieldset-instruction'>Tests:</label>
+					<div className='checkbox-group'>
+						{ AVAILABLE_TESTS.map( test => (
+							<label key={test.value} className='checkbox-label'>
+								<input
+									type='checkbox'
+									value={test.value}
+									checked={cronTests.includes( test.value )}
+									onChange={() => toggleCronTest( test.value )}
+								/>
+								{test.name}
+							</label>
+						) ) }
+					</div>
+				</fieldset>
+				<fieldset>
+					<label htmlFor='cron-browser' className='fieldset-instruction'>Browser:</label>
+					<select
+						id='cron-browser'
+						className='input-select'
+						value={cronBrowser}
+						onChange={e => setCronBrowser( e.target.value )}
+					>
+						{ BROWSERS.map( b => (
+							<option key={b.value} value={b.value}>{b.label}</option>
+						) ) }
+					</select>
+				</fieldset>
+
 				<input
 					type='submit'
 					value={saving ? 'Saving…' : 'Save Settings'}

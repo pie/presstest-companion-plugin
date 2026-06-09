@@ -21,6 +21,8 @@ function activate() {
 	update_option( 'woocommerce_queue_flush_rewrite_rules', 'true' );
 	create_database_tables();
 	generate_report_secret();
+	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/cron.php';
+	sync_presstest_cron();
 }
 
 /**

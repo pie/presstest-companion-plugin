@@ -116,6 +116,19 @@ function register_endpoints() {
 		)
 	);
 
+	// Return the available cron schedule options for the React settings UI.
+	register_rest_route(
+		'presstest-companion/v1',
+		'schedules/',
+		array(
+			'methods'             => \WP_REST_Server::READABLE,
+			'callback'            => __NAMESPACE__ . '\get_schedule_options',
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+		)
+	);
+
 	// Delete a single report belonging to the currently authenticated user.
 	register_rest_route(
 		'presstest-companion/v1',

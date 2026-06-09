@@ -33,6 +33,7 @@ function load_dependencies() {
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/i18n.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/enqueues.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/settings.php';
+	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/cron.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/api/endpoints.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/api/callbacks.php';
 }
