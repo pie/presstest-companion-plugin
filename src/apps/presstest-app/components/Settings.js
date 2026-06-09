@@ -73,6 +73,11 @@ function Settings() {
 
 	const saveSettings = async ( e ) => {
 		e.preventDefault();
+		if ( cronEnabled && 0 === cronTests.length ) {
+			setMessage( { type: 'error', text: 'Please select at least one test suite before enabling scheduled tests.' } );
+			return;
+		}
+
 		setSaving( true );
 		setMessage( { type: '', text: '' } );
 
