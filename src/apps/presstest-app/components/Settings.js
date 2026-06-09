@@ -34,12 +34,9 @@ function Settings() {
 			return config;
 		} );
 
-		Promise.all( [
-			axiosInstance.get( window.wpApiSettings.root + 'wp/v2/settings' ),
-			axiosInstance.get( window.wpApiSettings.root + 'presstest-companion/v1/schedules' ),
-			axiosInstance.get( window.wpApiSettings.root + 'wp/v2/users/me?_fields=id' ),
-		] )
-			.then( ( [ settingsRes, schedulesRes, userRes ] ) => {
+		axiosInstance
+			.get( window.wpApiSettings.root + 'wp/v2/settings' )
+			.then( async ( settingsRes ) => {
 				const data = settingsRes.data;
 
 				setApiKey( data.presstest_companion_api_key ?? '' );
@@ -50,10 +47,25 @@ function Settings() {
 				const rawTests = data.presstest_companion_cron_tests ?? '';
 				setCronTests( rawTests.split( ',' ).map( t => t.trim() ).filter( Boolean ) );
 
-				setScheduleOptions( schedulesRes.data );
+				const [ schedulesResult, userResult ] = await Promise.allSettled( [
+					axiosInstance.get( window.wpApiSettings.root + 'presstest-companion/v1/schedules' ),
+					axiosInstance.get( window.wpApiSettings.root + 'wp/v2/users/me?_fields=id' ),
+				] );
+
+				if ( 'fulfilled' === schedulesResult.status ) {
+					setScheduleOptions( schedulesResult.value.data );
+				} else {
+					console.error( 'Failed to load schedule options:', schedulesResult.reason );
+				}
 
 				const savedUserId = data.presstest_companion_cron_user_id ?? 0;
-				setCurrentUserId( 0 !== savedUserId ? savedUserId : ( userRes.data.id ?? 0 ) );
+				if ( 0 !== savedUserId ) {
+					setCurrentUserId( savedUserId );
+				} else if ( 'fulfilled' === userResult.status ) {
+					setCurrentUserId( userResult.value.data.id ?? 0 );
+				} else {
+					console.error( 'Failed to load current user:', userResult.reason );
+				}
 
 				setLoading( false );
 			} )
