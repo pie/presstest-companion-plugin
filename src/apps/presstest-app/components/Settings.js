@@ -22,7 +22,6 @@ function Settings() {
 
 	const [cronEnabled, setCronEnabled]         = useState( false );
 	const [cronSchedule, setCronSchedule]       = useState( 'daily' );
-	const [cronUrl, setCronUrl]                 = useState( '' );
 	const [cronTests, setCronTests]             = useState( [] );
 	const [cronBrowser, setCronBrowser]         = useState( 'chromium' );
 	const [scheduleOptions, setScheduleOptions] = useState( {} );
@@ -46,7 +45,6 @@ function Settings() {
 				setApiKey( data.presstest_companion_api_key ?? '' );
 				setCronEnabled( data.presstest_companion_cron_enabled ?? false );
 				setCronSchedule( data.presstest_companion_cron_schedule ?? 'daily' );
-				setCronUrl( data.presstest_companion_cron_url ?? '' );
 				setCronBrowser( data.presstest_companion_cron_browser ?? 'chromium' );
 
 				const rawTests = data.presstest_companion_cron_tests ?? '';
@@ -91,7 +89,7 @@ function Settings() {
 					presstest_companion_api_key:      apiKey,
 					presstest_companion_cron_enabled:  cronEnabled,
 					presstest_companion_cron_schedule: cronSchedule,
-					presstest_companion_cron_url:      cronUrl,
+					presstest_companion_cron_url:      settings.site_url,
 					presstest_companion_cron_tests:    cronTests.join( ',' ),
 					presstest_companion_cron_browser:  cronBrowser,
 					presstest_companion_cron_user_id:  currentUserId,
@@ -157,18 +155,6 @@ function Settings() {
 							<option key={key} value={key}>{opt.label}</option>
 						) ) }
 					</select>
-				</fieldset>
-				<fieldset>
-					<label htmlFor='cron-url' className='fieldset-instruction'>URL:</label>
-					<input
-						type='url'
-						id='cron-url'
-						className='input-text'
-						value={cronUrl}
-						onChange={e => setCronUrl( e.target.value )}
-						placeholder='https://example.com'
-					/>
-					<p className='field-description'>The URL to run tests against on each scheduled run.</p>
 				</fieldset>
 				<fieldset>
 					<label className='fieldset-instruction'>Tests:</label>
