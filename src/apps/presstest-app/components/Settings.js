@@ -1,16 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-
-const AVAILABLE_TESTS = [
-	{ name: 'WordPress Core',   value: 'wordpress-core' },
-	{ name: 'WooCommerce Core', value: 'woocommerce-core' },
-];
-
-const BROWSERS = [
-	{ value: 'chromium', label: 'Chrome' },
-	{ value: 'firefox',  label: 'Firefox' },
-	{ value: 'webkit',   label: 'Safari' },
-];
+import Select from 'react-select';
+import { TEST_OPTIONS } from '../data/tests';
+import BROWSERS from '../data/browsers';
 
 const settings = window.presstest_companion;
 
@@ -71,19 +63,6 @@ function Settings() {
 				setLoading( false );
 			} );
 	}, [] );
-
-	/**
-	 * Toggles a test suite slug in the cron test selection.
-	 *
-	 * @param {string} value Test suite slug to toggle.
-	 */
-	const toggleCronTest = ( value ) => {
-		setCronTests( prev =>
-			prev.includes( value )
-				? prev.filter( t => t !== value )
-				: [ ...prev, value ]
-		);
-	};
 
 	/**
 	 * Validates the form and persists all settings via the WordPress REST API.
@@ -182,20 +161,15 @@ function Settings() {
 					</select>
 				</fieldset>
 				<fieldset>
-					<label className='fieldset-instruction'>Tests:</label>
-					<div className='checkbox-group'>
-						{ AVAILABLE_TESTS.map( test => (
-							<label key={test.value} className='checkbox-label'>
-								<input
-									type='checkbox'
-									value={test.value}
-									checked={cronTests.includes( test.value )}
-									onChange={() => toggleCronTest( test.value )}
-								/>
-								{test.name}
-							</label>
-						) ) }
-					</div>
+					<label htmlFor='cron-tests' className='fieldset-instruction'>Tests:</label>
+					<Select
+						isMulti
+						inputId='cron-tests'
+						options={TEST_OPTIONS}
+						value={TEST_OPTIONS.filter( t => cronTests.includes( t.value ) )}
+						onChange={opts => setCronTests( ( opts ?? [] ).map( t => t.value ) )}
+						menuPortalTarget={document.body}
+					/>
 				</fieldset>
 				<fieldset>
 					<label htmlFor='cron-browser' className='fieldset-instruction'>Browser:</label>
