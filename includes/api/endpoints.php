@@ -90,12 +90,6 @@ function register_endpoints(): void {
 						return is_string( $param );
 					},
 				),
-				'user_id' => array(
-					'required'          => true,
-					'validate_callback' => function ( $param ) {
-						return is_numeric( $param );
-					},
-				),
 				'report'  => array(
 					'required'          => true,
 					'validate_callback' => function ( $param ) {

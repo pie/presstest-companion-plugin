@@ -122,16 +122,6 @@ function register_settings(): void {
 		)
 	);
 
-	register_setting(
-		'presstest_companion',
-		'presstest_companion_cron_user_id',
-		array(
-			'type'              => 'integer',
-			'sanitize_callback' => 'absint',
-			'default'           => 0,
-			'show_in_rest'      => true,
-		)
-	);
 }
 
 /**

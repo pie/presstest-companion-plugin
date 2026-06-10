@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 
-// Strips ANSI terminal colour codes from strings.
+/**
+ * Strips ANSI terminal colour codes from a string.
+ *
+ * @param {string} str Raw string that may contain ANSI escape sequences.
+ * @returns {string}
+ */
 const stripAnsi = str => str.replace( /\x1B\[[0-9;]*m/g, '' );
 import axios from 'axios';
 import {
@@ -56,6 +61,14 @@ function reportStatus( report ) {
 	return 'passed';
 }
 
+/**
+ * Displays all test reports with accordion drill-down and pagination.
+ *
+ * Fetches from the REST API on mount, paginates locally at 10 per page,
+ * and allows individual reports to be deleted.
+ *
+ * @returns {JSX.Element}
+ */
 function Results() {
 	const [allResults, setAllResults]         = useState( [] );
 	const [currentResults, setCurrentResults] = useState( [] );
@@ -73,6 +86,9 @@ function Results() {
 			return config;
 		} );
 
+		/**
+		 * Fetches all test reports from the REST API and initialises pagination state.
+		 */
 		const fetchResults = async () => {
 			try {
 				const response = await axiosInstance.get( window.wpApiSettings.root + 'presstest-companion/v1/reports' );

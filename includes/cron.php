@@ -166,11 +166,10 @@ function run_presstest_scheduled_test() {
 	$url     = esc_url_raw( get_option( 'presstest_companion_cron_url', '' ) );
 	$tests   = sanitize_text_field( get_option( 'presstest_companion_cron_tests', '' ) );
 	$browser = sanitize_key( get_option( 'presstest_companion_cron_browser', 'chromium' ) );
-	$user_id = absint( get_option( 'presstest_companion_cron_user_id', 0 ) );
 
-	if ( '' === $url || '' === $tests || 0 === $user_id ) {
+	if ( '' === $url || '' === $tests ) {
 		return;
 	}
 
-	dispatch_presstest_request( $url, $tests, $browser, $user_id );
+	dispatch_presstest_request( $url, $tests, $browser );
 }

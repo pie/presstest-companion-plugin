@@ -60,7 +60,6 @@ function create_database_tables(): void {
 
 	$sql = "CREATE TABLE {$table} (
 		id bigint(20) NOT NULL AUTO_INCREMENT,
-		user_id bigint(20) NOT NULL,
 		domain varchar(255) DEFAULT '' NOT NULL,
 		browser varchar(100) DEFAULT '' NOT NULL,
 		date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,

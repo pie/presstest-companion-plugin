@@ -14,6 +14,14 @@ const BROWSERS = [
 
 const settings = window.presstest_companion;
 
+/**
+ * Settings panel for managing the API key and scheduled test configuration.
+ *
+ * Reads and writes values via the WordPress /wp/v2/settings REST endpoint.
+ * Cron schedule options are fetched from the plugin's own REST endpoint on mount.
+ *
+ * @returns {JSX.Element}
+ */
 function Settings() {
 	const [apiKey, setApiKey]   = useState( '' );
 	const [loading, setLoading] = useState( true );
@@ -25,7 +33,6 @@ function Settings() {
 	const [cronTests, setCronTests]             = useState( [] );
 	const [cronBrowser, setCronBrowser]         = useState( 'chromium' );
 	const [scheduleOptions, setScheduleOptions] = useState( {} );
-	const [currentUserId, setCurrentUserId]     = useState( 0 );
 
 	useEffect( () => {
 		const axiosInstance = axios.create();
@@ -47,24 +54,14 @@ function Settings() {
 				const rawTests = data.presstest_companion_cron_tests ?? '';
 				setCronTests( rawTests.split( ',' ).map( t => t.trim() ).filter( Boolean ) );
 
-				const [ schedulesResult, userResult ] = await Promise.allSettled( [
+				const [ schedulesResult ] = await Promise.allSettled( [
 					axiosInstance.get( window.wpApiSettings.root + 'presstest-companion/v1/schedules' ),
-					axiosInstance.get( window.wpApiSettings.root + 'wp/v2/users/me?_fields=id' ),
 				] );
 
 				if ( 'fulfilled' === schedulesResult.status ) {
 					setScheduleOptions( schedulesResult.value.data );
 				} else {
 					console.error( 'Failed to load schedule options:', schedulesResult.reason );
-				}
-
-				const savedUserId = data.presstest_companion_cron_user_id ?? 0;
-				if ( 0 !== savedUserId ) {
-					setCurrentUserId( savedUserId );
-				} else if ( 'fulfilled' === userResult.status ) {
-					setCurrentUserId( userResult.value.data.id ?? 0 );
-				} else {
-					console.error( 'Failed to load current user:', userResult.reason );
 				}
 
 				setLoading( false );
@@ -75,6 +72,11 @@ function Settings() {
 			} );
 	}, [] );
 
+	/**
+	 * Toggles a test suite slug in the cron test selection.
+	 *
+	 * @param {string} value Test suite slug to toggle.
+	 */
 	const toggleCronTest = ( value ) => {
 		setCronTests( prev =>
 			prev.includes( value )
@@ -83,6 +85,13 @@ function Settings() {
 		);
 	};
 
+	/**
+	 * Validates the form and persists all settings via the WordPress REST API.
+	 *
+	 * Blocks saving if scheduled tests are enabled but no test suites are selected.
+	 *
+	 * @param {React.FormEvent} e Form submit event.
+	 */
 	const saveSettings = async ( e ) => {
 		e.preventDefault();
 		if ( cronEnabled && 0 === cronTests.length ) {
@@ -109,7 +118,6 @@ function Settings() {
 					presstest_companion_cron_url:      settings.site_url,
 					presstest_companion_cron_tests:    cronTests.join( ',' ),
 					presstest_companion_cron_browser:  cronBrowser,
-					presstest_companion_cron_user_id:  currentUserId,
 				}
 			);
 			setMessage( { type: 'success', text: 'Settings saved.' } );

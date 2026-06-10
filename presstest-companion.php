@@ -10,7 +10,7 @@
  * Plugin Name:       Presstest Companion
  * Plugin URI:        https://pie.co.de
  * Description:       Connect your WordPress site to your Presstest server and run automated browser tests from your account dashboard.
- * Version:           1.0.7
+ * Version:           1.0.8
  * Author:            PIE Web Ltd
  * Author URI:        https://pie.co.de
  * License:           GPL-2.0+
