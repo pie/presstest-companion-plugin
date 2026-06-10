@@ -1,20 +1,19 @@
-export const tests = [
-	{
-		name:    'WordPress Core',
-		value:   'wordpress-core',
-		checked: user_has_selected_test( 'wordpress-core' ),
-	},
-	{
-		name:    'WooCommerce Core',
-		value:   'woocommerce-core',
-		checked: user_has_selected_test( 'woocommerce-core' ),
-	},
-	{
-		name:    'Ascott Analytical',
-		value:   'ascott-analytical',
-		checked: user_has_selected_test( 'ascott-analytical' ),
-	},
+/**
+ * Available test suites.
+ *
+ * Single source of truth for suite slugs and display names used across
+ * the Testing and Settings components.
+ */
+export const TEST_SUITES = [
+	{ name: 'WordPress Core',    value: 'wordpress-core' },
+	{ name: 'WooCommerce Core',  value: 'woocommerce-core' },
+	{ name: 'Ascott Analytical', value: 'ascott-analytical' },
 ];
+
+/**
+ * TEST_SUITES mapped to react-select option format { value, label }.
+ */
+export const TEST_OPTIONS = TEST_SUITES.map( t => ( { value: t.value, label: t.name } ) );
 
 /**
  * Returns true if the user previously selected the given test suite.

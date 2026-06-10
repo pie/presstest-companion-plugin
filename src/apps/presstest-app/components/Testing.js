@@ -1,17 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import useOnChangeEffect from '../hooks/useOnChangeEffect';
 import axios from 'axios';
-import { tests } from '../data/tests';
+import { TEST_OPTIONS } from '../data/tests';
+import BROWSERS from '../data/browsers';
 import Spinner from './Spinner';
 import Select from 'react-select';
 
 const settings = window.presstest_companion;
-
-const BROWSERS = [
-	{ value: 'chromium', label: 'Chrome' },
-	{ value: 'firefox',  label: 'Firefox' },
-	{ value: 'webkit',   label: 'Safari' },
-];
 
 /**
  * Manual test runner panel.
@@ -23,20 +18,11 @@ const BROWSERS = [
  * @returns {JSX.Element}
  */
 function Testing() {
-	const [availableTests, updateTests]         = useState( tests );
-	const [selectedTests, updateSelectedTests]  = useState( [] );
+	const savedTests                            = settings.user_settings?.selected_tests ?? [];
+	const [selectedTests, updateSelectedTests]  = useState( Array.isArray( savedTests ) ? savedTests : [] );
 	const [selectedBrowser, setSelectedBrowser] = useState( settings.user_settings?.selected_browser ?? '' );
 	const [isTesting, setTestingStatus]         = useState( false );
 	const [message, updateMessage]              = useState( { type: '', message: '' } );
-
-	// Keep selectedTests in sync with the checkbox state.
-	useEffect( () => {
-		updateSelectedTests(
-			availableTests
-				.filter( t => t.checked )
-				.map( t => t.value )
-		);
-	}, [availableTests] );
 
 	/**
 	 * Persists selected_tests and selected_browser to user meta via the WP REST API.
@@ -66,23 +52,10 @@ function Testing() {
 	};
 
 	/**
-	 * Toggles the checked state of a test suite checkbox.
-	 *
-	 * @param {number} index Index of the test in the availableTests array.
-	 */
-	function handleTestUpdate( index ) {
-		updateTests( prev => {
-			const updated  = [ ...prev ];
-			updated[index] = { ...updated[index], checked: ! updated[index].checked };
-			return updated;
-		} );
-	}
-
-	/**
 	 * Sends a proxied test run request through the WordPress REST API.
 	 * The Presstest API key is resolved server-side and never exposed here.
 	 *
-	 * @param {object} e Event.
+	 * @param {React.MouseEvent} e Button click event.
 	 */
 	const runTests = async ( e ) => {
 		e.preventDefault();
@@ -144,19 +117,15 @@ function Testing() {
 			</p>
 			<form>
 				<fieldset>
-					<label className='fieldset-instruction'>Select tests to run:</label>
-					{availableTests.map( ( { name, value, checked }, index ) => (
-						<label key={value}>
-							<input
-								type='checkbox'
-								name={value}
-								value={value}
-								onChange={() => handleTestUpdate( index )}
-								checked={checked}
-							/>
-							{name}
-						</label>
-					))}
+					<label htmlFor='test-suites' className='fieldset-instruction'>Select tests to run:</label>
+					<Select
+						isMulti
+						inputId='test-suites'
+						options={TEST_OPTIONS}
+						value={TEST_OPTIONS.filter( t => selectedTests.includes( t.value ) )}
+						onChange={opts => updateSelectedTests( ( opts ?? [] ).map( t => t.value ) )}
+						menuPortalTarget={document.body}
+					/>
 				</fieldset>
 				<fieldset>
 					<label htmlFor='browsers' className='fieldset-instruction'>Select browser:</label>
