@@ -39,6 +39,17 @@ function activate_presstest_companion() {
 }
 register_activation_hook( __FILE__, __NAMESPACE__ . '\activate_presstest_companion' );
 
+/**
+ * Runs during plugin deactivation — clears any scheduled test events.
+ *
+ * @since 2.0.0
+ */
+function deactivate_presstest_companion() {
+	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/cron.php';
+	unschedule_presstest_cron();
+}
+register_deactivation_hook( __FILE__, __NAMESPACE__ . '\deactivate_presstest_companion' );
+
 require PRESSTEST_COMPANION_FILE_PATH . 'includes/loader.php';
 
 add_action( 'plugins_loaded', __NAMESPACE__ . '\load_plugin' );

@@ -55,6 +55,81 @@ function register_settings() {
 			'show_in_rest'      => true,
 		)
 	);
+
+	register_setting(
+		'presstest_companion',
+		'presstest_companion_cron_enabled',
+		array(
+			'type'         => 'boolean',
+			'default'      => false,
+			'show_in_rest' => true,
+		)
+	);
+
+	register_setting(
+		'presstest_companion',
+		'presstest_companion_cron_schedule',
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'sanitize_key',
+			'default'           => 'daily',
+			'show_in_rest'      => array(
+				'schema' => array(
+					'type' => 'string',
+					'enum' => array( 'hourly', 'twicedaily', 'daily', 'weekly' ),
+				),
+			),
+		)
+	);
+
+	register_setting(
+		'presstest_companion',
+		'presstest_companion_cron_url',
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'esc_url_raw',
+			'default'           => '',
+			'show_in_rest'      => true,
+		)
+	);
+
+	register_setting(
+		'presstest_companion',
+		'presstest_companion_cron_tests',
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'sanitize_text_field',
+			'default'           => '',
+			'show_in_rest'      => true,
+		)
+	);
+
+	register_setting(
+		'presstest_companion',
+		'presstest_companion_cron_browser',
+		array(
+			'type'              => 'string',
+			'sanitize_callback' => 'sanitize_key',
+			'default'           => 'chromium',
+			'show_in_rest'      => array(
+				'schema' => array(
+					'type' => 'string',
+					'enum' => array( 'chromium', 'firefox', 'webkit' ),
+				),
+			),
+		)
+	);
+
+	register_setting(
+		'presstest_companion',
+		'presstest_companion_cron_user_id',
+		array(
+			'type'              => 'integer',
+			'sanitize_callback' => 'absint',
+			'default'           => 0,
+			'show_in_rest'      => true,
+		)
+	);
 }
 add_action( 'init', __NAMESPACE__ . '\register_settings' );
 
