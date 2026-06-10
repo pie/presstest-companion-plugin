@@ -9,6 +9,11 @@ export const tests = [
 		value:   'woocommerce-core',
 		checked: user_has_selected_test( 'woocommerce-core' ),
 	},
+	{
+		name:    'Ascott Analytical',
+		value:   'ascott-analytical',
+		checked: user_has_selected_test( 'ascott-analytical' ),
+	},
 ];
 
 /**
