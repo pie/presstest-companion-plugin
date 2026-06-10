@@ -3,7 +3,7 @@
  * REST API callback functions.
  *
  * @link       https://pie.co.de
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes/api
@@ -17,14 +17,14 @@ namespace PIE\PresstestCompanion;
  * Shared by both the REST endpoint (interactive runs) and the cron callback
  * (scheduled runs) so the HTTP logic lives in one place.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param string $url     Full URL of the site to test.
  * @param string $tests   Space- or comma-separated suite names.
  * @param string $browser chromium | firefox | webkit.
  * @param int    $user_id WordPress user ID to attribute the resulting report to.
  * @return array|\WP_Error Decoded response body on success, WP_Error on failure.
  */
-function dispatch_presstest_request( $url, $tests, $browser, $user_id ) {
+function dispatch_presstest_request( string $url, string $tests, string $browser, int $user_id ): array|\WP_Error {
 	$api_key = get_option( 'presstest_companion_api_key', '' );
 
 	if ( '' === $api_key ) {
@@ -83,11 +83,11 @@ function dispatch_presstest_request( $url, $tests, $browser, $user_id ) {
  * The WordPress user ID is resolved from the session rather than accepted as a
  * parameter, preventing one user from triggering runs attributed to another.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param \WP_REST_Request $request Incoming REST request.
  * @return \WP_REST_Response|\WP_Error
  */
-function trigger_test_run( \WP_REST_Request $request ) {
+function trigger_test_run( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 	$result = dispatch_presstest_request(
 		$request->get_param( 'url' ),
 		$request->get_param( 'tests' ),
@@ -105,21 +105,21 @@ function trigger_test_run( \WP_REST_Request $request ) {
 /**
  * Return the available cron schedule options for the React settings UI.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return \WP_REST_Response
  */
-function get_schedule_options() {
+function get_schedule_options(): \WP_REST_Response {
 	return rest_ensure_response( get_cron_schedule_options() );
 }
 
 /**
  * Save a test report into the database.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param \WP_REST_Request $request Incoming REST request.
  * @return bool True on success, false on failure.
  */
-function save_report( \WP_REST_Request $request ) {
+function save_report( \WP_REST_Request $request ): bool {
 	global $wpdb;
 
 	$domain  = esc_url_raw( $request->get_param( 'domain' ) );
@@ -144,7 +144,7 @@ function save_report( \WP_REST_Request $request ) {
 /**
  * Delete a single report belonging to the currently authenticated user.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param \WP_REST_Request $request Incoming REST request.
  * @return \WP_REST_Response|\WP_Error
  */
@@ -178,7 +178,7 @@ function delete_report( \WP_REST_Request $request ) {
 /**
  * Get all test reports for the currently authenticated user.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return array
  */
 function get_reports() {

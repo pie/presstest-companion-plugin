@@ -3,7 +3,7 @@
  * All CSS/JS enqueues.
  *
  * @link       https://pie.co.de
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes
@@ -11,13 +11,15 @@
 
 namespace PIE\PresstestCompanion;
 
+add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueues_admin' );
+
 /**
  * Enqueue scripts and styles on the Presstest admin page.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function enqueues_admin() {
+function enqueues_admin(): void {
 	$screen = get_current_screen();
 
 	if ( ! $screen instanceof \WP_Screen || 'toplevel_page_presstest-companion' !== $screen->id ) {
@@ -65,4 +67,3 @@ function enqueues_admin() {
 
 	wp_enqueue_style( 'dashicons' );
 }
-add_action( 'admin_enqueue_scripts', __NAMESPACE__ . '\enqueues_admin' );

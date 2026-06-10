@@ -9,7 +9,7 @@
  *   DELETE presstest-companion/v1/reports/{id}  — delete a single report belonging to the current user
  *
  * @link       https://pie.co.de
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes/api
@@ -17,13 +17,16 @@
 
 namespace PIE\PresstestCompanion;
 
+add_action( 'rest_api_init', __NAMESPACE__ . '\register_endpoints' );
+add_action( 'rest_api_init', __NAMESPACE__ . '\register_metafields' );
+
 /**
  * Register all REST routes.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function register_endpoints() {
+function register_endpoints(): void {
 
 	// Proxy endpoint — triggers a test run on the Presstest server.
 	// Called from the React app; the API key is resolved server-side and never
@@ -150,15 +153,14 @@ function register_endpoints() {
 		)
 	);
 }
-add_action( 'rest_api_init', __NAMESPACE__ . '\register_endpoints' );
 
 /**
  * Register user meta for persisting frontend settings via the REST API.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function register_metafields() {
+function register_metafields(): void {
 	register_meta(
 		'user',
 		'_presstest_settings',
@@ -180,4 +182,3 @@ function register_metafields() {
 		)
 	);
 }
-add_action( 'rest_api_init', __NAMESPACE__ . '\register_metafields' );

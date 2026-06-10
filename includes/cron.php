@@ -7,7 +7,7 @@
  * back to WP-Cron for sites that don't have it installed.
  *
  * @link       https://pie.co.de
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes
@@ -18,16 +18,21 @@ namespace PIE\PresstestCompanion;
 /** The WP action hook name fired on each scheduled run. */
 const PRESSTEST_CRON_HOOK = 'presstest_companion_run_scheduled_tests';
 
+add_filter( 'cron_schedules', __NAMESPACE__ . '\add_weekly_cron_schedule' ); // phpcs:ignore WordPress.WP.CronInterval
+add_action( PRESSTEST_CRON_HOOK, __NAMESPACE__ . '\run_presstest_scheduled_test' );
+add_action( 'update_option_presstest_companion_cron_enabled', __NAMESPACE__ . '\sync_presstest_cron' );
+add_action( 'update_option_presstest_companion_cron_schedule', __NAMESPACE__ . '\sync_presstest_cron' );
+
 /**
  * Returns the available schedule options.
  *
  * Each entry has a translated label and an interval in seconds so the caller
  * doesn't need to maintain a separate mapping.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return array<string, array{label: string, interval: int}>
  */
-function get_cron_schedule_options() {
+function get_cron_schedule_options(): array {
 	return array(
 		'hourly'     => array(
 			'label'    => __( 'Hourly', 'presstest-companion' ),
@@ -52,11 +57,11 @@ function get_cron_schedule_options() {
  * Register a weekly WP-Cron interval so the 'weekly' schedule slug is valid
  * when Action Scheduler is not present.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param array $schedules Existing WP-Cron schedules.
  * @return array
  */
-function add_weekly_cron_schedule( array $schedules ) {
+function add_weekly_cron_schedule( array $schedules ): array {
 	if ( ! isset( $schedules['weekly'] ) ) {
 		$schedules['weekly'] = array(
 			'interval' => WEEK_IN_SECONDS,
@@ -65,15 +70,14 @@ function add_weekly_cron_schedule( array $schedules ) {
 	}
 	return $schedules;
 }
-add_filter( 'cron_schedules', __NAMESPACE__ . '\add_weekly_cron_schedule' );
 
 /**
  * Whether Action Scheduler is available on this site.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return bool
  */
-function has_action_scheduler() {
+function has_action_scheduler(): bool {
 	return function_exists( 'as_schedule_recurring_action' );
 }
 
@@ -83,11 +87,11 @@ function has_action_scheduler() {
  * Uses Action Scheduler when available; falls back to WP-Cron.
  * Always call unschedule_presstest_cron() first when changing the interval.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param string $schedule_slug One of: hourly, twicedaily, daily, weekly.
  * @return void
  */
-function schedule_presstest_cron( $schedule_slug ) {
+function schedule_presstest_cron( string $schedule_slug ): void {
 	$options = get_cron_schedule_options();
 
 	if ( ! isset( $options[ $schedule_slug ] ) ) {
@@ -113,10 +117,10 @@ function schedule_presstest_cron( $schedule_slug ) {
  *
  * Cleans up both schedulers so switching between them leaves no orphaned events.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function unschedule_presstest_cron() {
+function unschedule_presstest_cron(): void {
 	if ( function_exists( 'as_unschedule_all_actions' ) ) {
 		as_unschedule_all_actions( PRESSTEST_CRON_HOOK, array(), 'presstest-companion' );
 	}
@@ -130,21 +134,19 @@ function unschedule_presstest_cron() {
  * Hooked to option updates for the enabled flag and the schedule slug.
  * Always unschedules first so that changing the interval takes effect immediately.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function sync_presstest_cron() {
+function sync_presstest_cron(): void {
 	$enabled  = (bool) get_option( 'presstest_companion_cron_enabled', false );
 	$schedule = sanitize_key( get_option( 'presstest_companion_cron_schedule', 'daily' ) );
 
 	unschedule_presstest_cron();
 
-	if ( $enabled ) {
+	if ( true === $enabled ) {
 		schedule_presstest_cron( $schedule );
 	}
 }
-add_action( 'update_option_presstest_companion_cron_enabled',  __NAMESPACE__ . '\sync_presstest_cron' );
-add_action( 'update_option_presstest_companion_cron_schedule', __NAMESPACE__ . '\sync_presstest_cron' );
 
 /**
  * Execute the scheduled test run.
@@ -153,7 +155,7 @@ add_action( 'update_option_presstest_companion_cron_schedule', __NAMESPACE__ . '
  * the Presstest server. Silently exits if any required value is missing or
  * the feature has been disabled since the event was last scheduled.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
 function run_presstest_scheduled_test() {
@@ -172,4 +174,3 @@ function run_presstest_scheduled_test() {
 
 	dispatch_presstest_request( $url, $tests, $browser, $user_id );
 }
-add_action( PRESSTEST_CRON_HOOK, __NAMESPACE__ . '\run_presstest_scheduled_test' );

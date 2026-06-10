@@ -3,7 +3,7 @@
  * Define core plugin load functionality.
  *
  * @link       https://pie.co.de
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes
@@ -14,10 +14,10 @@ namespace PIE\PresstestCompanion;
 /**
  * Load plugin.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function load_plugin() {
+function load_plugin(): void {
 	load_dependencies();
 	set_locale();
 }
@@ -25,10 +25,10 @@ function load_plugin() {
 /**
  * Load the required dependencies for this plugin.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function load_dependencies() {
+function load_dependencies(): void {
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/updater.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/i18n.php';
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/enqueues.php';
@@ -41,9 +41,9 @@ function load_dependencies() {
 /**
  * Define the locale for this plugin for internationalization.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function set_locale() {
+function set_locale(): void {
 	add_action( 'plugins_loaded', __NAMESPACE__ . '\load_plugin_textdomain' );
 }
