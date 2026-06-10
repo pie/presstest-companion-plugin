@@ -6,7 +6,7 @@
  * can detect new versions and prompt the administrator to update.
  *
  * @link       https://presstest.io
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes

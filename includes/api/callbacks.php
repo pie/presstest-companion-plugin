@@ -3,7 +3,7 @@
  * REST API callback functions.
  *
  * @link       https://pie.co.de
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes/api
@@ -17,14 +17,13 @@ namespace PIE\PresstestCompanion;
  * Shared by both the REST endpoint (interactive runs) and the cron callback
  * (scheduled runs) so the HTTP logic lives in one place.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param string $url     Full URL of the site to test.
  * @param string $tests   Space- or comma-separated suite names.
  * @param string $browser chromium | firefox | webkit.
- * @param int    $user_id WordPress user ID to attribute the resulting report to.
  * @return array|\WP_Error Decoded response body on success, WP_Error on failure.
  */
-function dispatch_presstest_request( $url, $tests, $browser, $user_id ) {
+function dispatch_presstest_request( string $url, string $tests, string $browser ): array|\WP_Error {
 	$api_key = get_option( 'presstest_companion_api_key', '' );
 
 	if ( '' === $api_key ) {
@@ -45,7 +44,6 @@ function dispatch_presstest_request( $url, $tests, $browser, $user_id ) {
 			'body'    => wp_json_encode(
 				array(
 					'url'           => $url,
-					'user_id'       => $user_id,
 					'tests'         => $tests,
 					'browser'       => $browser,
 					// Sent so the Presstest server can authenticate its callback POST
@@ -83,16 +81,15 @@ function dispatch_presstest_request( $url, $tests, $browser, $user_id ) {
  * The WordPress user ID is resolved from the session rather than accepted as a
  * parameter, preventing one user from triggering runs attributed to another.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param \WP_REST_Request $request Incoming REST request.
  * @return \WP_REST_Response|\WP_Error
  */
-function trigger_test_run( \WP_REST_Request $request ) {
+function trigger_test_run( \WP_REST_Request $request ): \WP_REST_Response|\WP_Error {
 	$result = dispatch_presstest_request(
 		$request->get_param( 'url' ),
 		$request->get_param( 'tests' ),
-		$request->get_param( 'browser' ),
-		get_current_user_id()
+		$request->get_param( 'browser' )
 	);
 
 	if ( is_wp_error( $result ) ) {
@@ -105,26 +102,25 @@ function trigger_test_run( \WP_REST_Request $request ) {
 /**
  * Return the available cron schedule options for the React settings UI.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return \WP_REST_Response
  */
-function get_schedule_options() {
+function get_schedule_options(): \WP_REST_Response {
 	return rest_ensure_response( get_cron_schedule_options() );
 }
 
 /**
  * Save a test report into the database.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param \WP_REST_Request $request Incoming REST request.
  * @return bool True on success, false on failure.
  */
-function save_report( \WP_REST_Request $request ) {
+function save_report( \WP_REST_Request $request ): bool {
 	global $wpdb;
 
 	$domain  = esc_url_raw( $request->get_param( 'domain' ) );
 	$browser = sanitize_text_field( $request->get_param( 'browser' ) );
-	$user_id = absint( $request->get_param( 'user_id' ) );
 	$report  = $request->get_param( 'report' );
 
 	$inserted = $wpdb->insert( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
@@ -132,7 +128,6 @@ function save_report( \WP_REST_Request $request ) {
 		array(
 			'domain'  => $domain,
 			'browser' => $browser,
-			'user_id' => $user_id,
 			'date'    => current_time( 'mysql' ),
 			'report'  => $report,
 		)
@@ -144,24 +139,20 @@ function save_report( \WP_REST_Request $request ) {
 /**
  * Delete a single report belonging to the currently authenticated user.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @param \WP_REST_Request $request Incoming REST request.
  * @return \WP_REST_Response|\WP_Error
  */
 function delete_report( \WP_REST_Request $request ) {
 	global $wpdb;
 
-	$id      = absint( $request->get_param( 'id' ) );
-	$user_id = get_current_user_id();
-	$table   = $wpdb->prefix . 'presstest_reports';
+	$id    = absint( $request->get_param( 'id' ) );
+	$table = $wpdb->prefix . 'presstest_reports';
 
 	$deleted = $wpdb->delete( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$table,
-		array(
-			'id'      => $id,
-			'user_id' => $user_id,
-		),
-		array( '%d', '%d' )
+		array( 'id' => $id ),
+		array( '%d' )
 	);
 
 	if ( false === $deleted ) {
@@ -178,17 +169,16 @@ function delete_report( \WP_REST_Request $request ) {
 /**
  * Get all test reports for the currently authenticated user.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return array
  */
-function get_reports() {
+function get_reports(): array {
 	global $wpdb;
 
-	$user_id = get_current_user_id();
-	$table   = $wpdb->prefix . 'presstest_reports';
+	$table = $wpdb->prefix . 'presstest_reports';
 
-	return $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
-		$wpdb->prepare( "SELECT * FROM {$table} WHERE user_id = %d ORDER BY date DESC", $user_id ), // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	return $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		"SELECT * FROM {$table} ORDER BY date DESC",
 		'OBJECT'
 	);
 }

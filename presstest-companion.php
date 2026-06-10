@@ -3,14 +3,14 @@
  * Plugin bootstrap file.
  *
  * @link              https://pie.co.de
- * @since             2.0.0
+ * @since             1.0.0
  * @package           PIE\PresstestCompanion
  *
  * @wordpress-plugin
  * Plugin Name:       Presstest Companion
  * Plugin URI:        https://pie.co.de
  * Description:       Connect your WordPress site to your Presstest server and run automated browser tests from your account dashboard.
- * Version:           1.0.7
+ * Version:           1.0.8
  * Author:            PIE Web Ltd
  * Author URI:        https://pie.co.de
  * License:           GPL-2.0+
@@ -31,9 +31,9 @@ require_once 'definitions.php';
 /**
  * Runs during plugin activation.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
-function activate_presstest_companion() {
+function activate_presstest_companion(): void {
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/activator.php';
 	activate();
 }
@@ -42,9 +42,9 @@ register_activation_hook( __FILE__, __NAMESPACE__ . '\activate_presstest_compani
 /**
  * Runs during plugin deactivation — clears any scheduled test events.
  *
- * @since 2.0.0
+ * @since 1.0.0
  */
-function deactivate_presstest_companion() {
+function deactivate_presstest_companion(): void {
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/cron.php';
 	unschedule_presstest_cron();
 }

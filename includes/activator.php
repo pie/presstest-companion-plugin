@@ -3,7 +3,7 @@
  * Fired during plugin activation.
  *
  * @link       https://pie.co.de
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes
@@ -14,10 +14,10 @@ namespace PIE\PresstestCompanion;
 /**
  * Runs once on plugin activation.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function activate() {
+function activate(): void {
 	update_option( 'woocommerce_queue_flush_rewrite_rules', 'true' );
 	create_database_tables();
 	generate_report_secret();
@@ -33,10 +33,10 @@ function activate() {
  * X-Presstest-Token header. Never overwrites an existing value so the secret
  * survives deactivation/reactivation cycles.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function generate_report_secret() {
+function generate_report_secret(): void {
 	if ( '' !== get_option( 'presstest_companion_report_secret', '' ) ) {
 		return;
 	}
@@ -49,10 +49,10 @@ function generate_report_secret() {
  * Uses dbDelta() which handles CREATE TABLE idempotently — safe to call on
  * every activation (e.g. re-activation after update).
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function create_database_tables() {
+function create_database_tables(): void {
 	global $wpdb;
 
 	$charset = $wpdb->get_charset_collate();
@@ -60,7 +60,6 @@ function create_database_tables() {
 
 	$sql = "CREATE TABLE {$table} (
 		id bigint(20) NOT NULL AUTO_INCREMENT,
-		user_id bigint(20) NOT NULL,
 		domain varchar(255) DEFAULT '' NOT NULL,
 		browser varchar(100) DEFAULT '' NOT NULL,
 		date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
