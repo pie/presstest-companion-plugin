@@ -1,7 +1,16 @@
-// Wrapper for useEffect that doesn't run on load, only when states are changed (used for posting to db when a user changes options)
 import { useEffect, useRef } from 'react';
 
-const useOnChangeEffect = (func, deps) => {
+/**
+ * Like useEffect, but skips the initial mount.
+ *
+ * The callback only fires when the dependencies change after the component
+ * has already rendered once — useful for persisting state to the server
+ * without triggering a save on load.
+ *
+ * @param {Function} func Callback to invoke on dependency change.
+ * @param {Array}    deps Dependency array passed to the underlying useEffect.
+ */
+const useOnChangeEffect = ( func, deps ) => {
     const didMount = useRef(false);
 
     useEffect(() => {

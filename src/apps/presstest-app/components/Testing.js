@@ -13,6 +13,15 @@ const BROWSERS = [
 	{ value: 'webkit',   label: 'Safari' },
 ];
 
+/**
+ * Manual test runner panel.
+ *
+ * Lets the user select test suites and a browser, then dispatches a run
+ * through the WordPress REST API. Preferences are auto-saved to user meta
+ * whenever the selection changes.
+ *
+ * @returns {JSX.Element}
+ */
 function Testing() {
 	const [availableTests, updateTests]         = useState( tests );
 	const [selectedTests, updateSelectedTests]  = useState( [] );

@@ -9,7 +9,7 @@
  *   DELETE presstest-companion/v1/reports/{id}  — delete a single report belonging to the current user
  *
  * @link       https://pie.co.de
- * @since      2.0.0
+ * @since      1.0.0
  *
  * @package    PIE\PresstestCompanion
  * @subpackage PIE\PresstestCompanion/includes/api
@@ -17,13 +17,16 @@
 
 namespace PIE\PresstestCompanion;
 
+add_action( 'rest_api_init', __NAMESPACE__ . '\register_endpoints' );
+add_action( 'rest_api_init', __NAMESPACE__ . '\register_metafields' );
+
 /**
  * Register all REST routes.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function register_endpoints() {
+function register_endpoints(): void {
 
 	// Proxy endpoint — triggers a test run on the Presstest server.
 	// Called from the React app; the API key is resolved server-side and never
@@ -87,12 +90,6 @@ function register_endpoints() {
 						return is_string( $param );
 					},
 				),
-				'user_id' => array(
-					'required'          => true,
-					'validate_callback' => function ( $param ) {
-						return is_numeric( $param );
-					},
-				),
 				'report'  => array(
 					'required'          => true,
 					'validate_callback' => function ( $param ) {
@@ -112,6 +109,19 @@ function register_endpoints() {
 			'callback'            => __NAMESPACE__ . '\get_reports',
 			'permission_callback' => function () {
 				return is_user_logged_in();
+			},
+		)
+	);
+
+	// Return the available cron schedule options for the React settings UI.
+	register_rest_route(
+		'presstest-companion/v1',
+		'schedules/',
+		array(
+			'methods'             => \WP_REST_Server::READABLE,
+			'callback'            => __NAMESPACE__ . '\get_schedule_options',
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
 			},
 		)
 	);
@@ -137,15 +147,14 @@ function register_endpoints() {
 		)
 	);
 }
-add_action( 'rest_api_init', __NAMESPACE__ . '\register_endpoints' );
 
 /**
  * Register user meta for persisting frontend settings via the REST API.
  *
- * @since 2.0.0
+ * @since 1.0.0
  * @return void
  */
-function register_metafields() {
+function register_metafields(): void {
 	register_meta(
 		'user',
 		'_presstest_settings',
@@ -167,4 +176,3 @@ function register_metafields() {
 		)
 	);
 }
-add_action( 'rest_api_init', __NAMESPACE__ . '\register_metafields' );

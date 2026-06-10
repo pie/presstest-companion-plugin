@@ -6,6 +6,13 @@ import Settings from './components/Settings';
 import '../../../node_modules/react-tabs/style/react-tabs.scss';
 import '../../sass/apps/presstest-app.scss';
 
+/**
+ * Root application component.
+ *
+ * Renders a tabbed interface containing the Testing, Reports, and Settings panels.
+ *
+ * @returns {JSX.Element}
+ */
 function App() {
   return (
     <div id='presstest-app'>
