@@ -8,6 +8,7 @@ export const TEST_SUITES = [
 	{ name: 'WordPress Core',    value: 'wordpress-core' },
 	{ name: 'WooCommerce Core',  value: 'woocommerce-core' },
 	{ name: 'Ascott Analytical', value: 'ascott-analytical' },
+	{ name: 'PDS Printing',      value: 'pds-printing' },
 ];
 
 /**
