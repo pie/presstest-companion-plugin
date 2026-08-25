@@ -9,6 +9,7 @@ export const TEST_SUITES = [
 	{ name: 'WooCommerce Core',  value: 'woocommerce-core' },
 	{ name: 'Ascott Analytical', value: 'ascott-analytical' },
 	{ name: 'PDS Printing',      value: 'pds-printing' },
+	{ name: 'V&Me',      		 value: 'vandme' },
 ];
 
 /**
