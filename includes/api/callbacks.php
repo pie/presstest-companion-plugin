@@ -20,7 +20,7 @@ namespace PIE\PresstestCompanion;
  * @since 1.0.0
  * @param string $url     Full URL of the site to test.
  * @param string $tests   Space- or comma-separated suite names.
- * @param string $browser chromium | firefox | webkit.
+ * @param string $browser chromium | firefox | webkit | mobile-chrome | mobile-safari.
  * @return array|\WP_Error Decoded response body on success, WP_Error on failure.
  */
 function dispatch_presstest_request( string $url, string $tests, string $browser ): array|\WP_Error {
