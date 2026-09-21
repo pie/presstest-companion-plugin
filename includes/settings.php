@@ -116,7 +116,7 @@ function register_settings(): void {
 			'show_in_rest'      => array(
 				'schema' => array(
 					'type' => 'string',
-					'enum' => array( 'chromium', 'firefox', 'webkit' ),
+					'enum' => array( 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari' ),
 				),
 			),
 		)
