@@ -56,7 +56,7 @@ function register_endpoints(): void {
 				'browser' => array(
 					'required'          => true,
 					'validate_callback' => function ( $param ) {
-						return in_array( $param, array( 'chromium', 'firefox', 'webkit' ), true );
+						return in_array( $param, array( 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari' ), true );
 					},
 				),
 			),
