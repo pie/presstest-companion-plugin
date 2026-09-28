@@ -149,7 +149,7 @@ function save_report( \WP_REST_Request $request ): bool {
 }
 
 /**
- * Delete a single report belonging to the currently authenticated user.
+ * Delete a single report.
  *
  * @since 1.0.0
  * @param \WP_REST_Request $request Incoming REST request.
@@ -179,7 +179,7 @@ function delete_report( \WP_REST_Request $request ) {
 }
 
 /**
- * Get all test reports for the currently authenticated user.
+ * Get all test reports, newest first.
  *
  * @since 1.0.0
  * @return array

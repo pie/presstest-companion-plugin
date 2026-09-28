@@ -5,8 +5,12 @@
  * Routes:
  *   POST   presstest-companion/v1/run          — proxy test run to the Presstest server
  *   POST   presstest-companion/v1/report        — save a report sent from the Presstest server
- *   GET    presstest-companion/v1/reports       — retrieve all reports for the current user
- *   DELETE presstest-companion/v1/reports/{id}  — delete a single report belonging to the current user
+ *   GET    presstest-companion/v1/reports       — retrieve all reports
+ *   DELETE presstest-companion/v1/reports/{id}  — delete a single report
+ *   GET    presstest-companion/v1/schedules     — list the scheduled test intervals
+ *
+ * Every route except /report is restricted to administrators via
+ * can_manage_presstest(); /report is authenticated by the X-Presstest-Token header.
  *
  * @link       https://pie.co.de
  * @since      1.0.0
@@ -19,6 +23,19 @@ namespace PIE\PresstestCompanion;
 
 add_action( 'rest_api_init', __NAMESPACE__ . '\register_endpoints' );
 add_action( 'rest_api_init', __NAMESPACE__ . '\register_metafields' );
+
+/**
+ * Permission callback for the admin-only routes.
+ *
+ * Matches the capability required to open the Presstest admin page, so only
+ * users who can see the app can trigger runs or read and delete reports.
+ *
+ * @since 1.2.1
+ * @return bool True if the current user can manage Presstest.
+ */
+function can_manage_presstest(): bool {
+	return current_user_can( 'manage_options' );
+}
 
 /**
  * Register all REST routes.
@@ -37,9 +54,7 @@ function register_endpoints(): void {
 		array(
 			'methods'             => \WP_REST_Server::CREATABLE,
 			'callback'            => __NAMESPACE__ . '\trigger_test_run',
-			'permission_callback' => function () {
-				return is_user_logged_in();
-			},
+			'permission_callback' => __NAMESPACE__ . '\can_manage_presstest',
 			'args'                => array(
 				'url'     => array(
 					'required'          => true,
@@ -100,16 +115,14 @@ function register_endpoints(): void {
 		)
 	);
 
-	// Retrieve all reports for the currently authenticated user.
+	// Retrieve all reports.
 	register_rest_route(
 		'presstest-companion/v1',
 		'reports/',
 		array(
 			'methods'             => \WP_REST_Server::READABLE,
 			'callback'            => __NAMESPACE__ . '\get_reports',
-			'permission_callback' => function () {
-				return is_user_logged_in();
-			},
+			'permission_callback' => __NAMESPACE__ . '\can_manage_presstest',
 		)
 	);
 
@@ -120,22 +133,18 @@ function register_endpoints(): void {
 		array(
 			'methods'             => \WP_REST_Server::READABLE,
 			'callback'            => __NAMESPACE__ . '\get_schedule_options',
-			'permission_callback' => function () {
-				return current_user_can( 'manage_options' );
-			},
+			'permission_callback' => __NAMESPACE__ . '\can_manage_presstest',
 		)
 	);
 
-	// Delete a single report belonging to the currently authenticated user.
+	// Delete a single report.
 	register_rest_route(
 		'presstest-companion/v1',
 		'reports/(?P<id>\d+)',
 		array(
 			'methods'             => \WP_REST_Server::DELETABLE,
 			'callback'            => __NAMESPACE__ . '\delete_report',
-			'permission_callback' => function () {
-				return is_user_logged_in();
-			},
+			'permission_callback' => __NAMESPACE__ . '\can_manage_presstest',
 			'args'                => array(
 				'id' => array(
 					'required'          => true,
