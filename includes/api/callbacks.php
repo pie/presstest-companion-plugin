@@ -67,7 +67,19 @@ function dispatch_presstest_request( string $url, string $tests, string $browser
 	$body        = json_decode( wp_remote_retrieve_body( $response ), true );
 
 	if ( 200 !== $status_code ) {
-		$message = isset( $body['error'] ) ? $body['error'] : __( 'Unknown error from Presstest server.', 'presstest-companion' );
+		// api.php describes every failure in 'status_message'. Anything else (e.g. an
+		// nginx error page while the API is down) is not JSON, so report the HTTP status.
+		$message = ( is_array( $body ) && isset( $body['status_message'] ) && is_string( $body['status_message'] ) )
+			? sprintf(
+				/* translators: %s: error message returned by the Presstest server. */
+				__( 'Presstest server error: %s', 'presstest-companion' ),
+				sanitize_text_field( $body['status_message'] )
+			)
+			: sprintf(
+				/* translators: %d: HTTP status code returned by the Presstest server. */
+				__( 'Unexpected response from Presstest server (HTTP %d).', 'presstest-companion' ),
+				$status_code
+			);
 		return new \WP_Error( 'presstest_error', $message, array( 'status' => $status_code ) );
 	}
 
