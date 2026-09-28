@@ -20,7 +20,7 @@ namespace PIE\PresstestCompanion;
  * @since 1.0.0
  * @param string $url     Full URL of the site to test.
  * @param string $tests   Space- or comma-separated suite names.
- * @param string $browser chromium | firefox | webkit | mobile-chrome | mobile-safari.
+ * @param string $browser One of get_supported_browsers().
  * @return array|\WP_Error Decoded response body on success, WP_Error on failure.
  */
 function dispatch_presstest_request( string $url, string $tests, string $browser ): array|\WP_Error {
@@ -67,7 +67,19 @@ function dispatch_presstest_request( string $url, string $tests, string $browser
 	$body        = json_decode( wp_remote_retrieve_body( $response ), true );
 
 	if ( 200 !== $status_code ) {
-		$message = isset( $body['error'] ) ? $body['error'] : __( 'Unknown error from Presstest server.', 'presstest-companion' );
+		// api.php describes every failure in 'status_message'. Anything else (e.g. an
+		// nginx error page while the API is down) is not JSON, so report the HTTP status.
+		$message = ( is_array( $body ) && isset( $body['status_message'] ) && is_string( $body['status_message'] ) )
+			? sprintf(
+				/* translators: %s: error message returned by the Presstest server. */
+				__( 'Presstest server error: %s', 'presstest-companion' ),
+				sanitize_text_field( $body['status_message'] )
+			)
+			: sprintf(
+				/* translators: %d: HTTP status code returned by the Presstest server. */
+				__( 'Unexpected response from Presstest server (HTTP %d).', 'presstest-companion' ),
+				$status_code
+			);
 		return new \WP_Error( 'presstest_error', $message, array( 'status' => $status_code ) );
 	}
 
@@ -137,7 +149,7 @@ function save_report( \WP_REST_Request $request ): bool {
 }
 
 /**
- * Delete a single report belonging to the currently authenticated user.
+ * Delete a single report.
  *
  * @since 1.0.0
  * @param \WP_REST_Request $request Incoming REST request.
@@ -167,7 +179,7 @@ function delete_report( \WP_REST_Request $request ) {
 }
 
 /**
- * Get all test reports for the currently authenticated user.
+ * Get all test reports, newest first.
  *
  * @since 1.0.0
  * @return array
