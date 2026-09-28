@@ -37,6 +37,20 @@ function add_admin_page(): void {
 }
 
 /**
+ * Returns the browser slugs the Presstest server can run tests in.
+ *
+ * Single source of truth for validating the browser on both interactive runs
+ * and the scheduled test setting. Each slug must match a Playwright project
+ * name in the Presstest server's playwright.config.js.
+ *
+ * @since 1.2.1
+ * @return string[] Supported browser slugs.
+ */
+function get_supported_browsers(): array {
+	return array( 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari' );
+}
+
+/**
  * Register plugin settings with the Settings API and expose them via REST.
  *
  * Hooked to `init` (not `admin_init`) so the settings are registered on every
@@ -116,12 +130,11 @@ function register_settings(): void {
 			'show_in_rest'      => array(
 				'schema' => array(
 					'type' => 'string',
-					'enum' => array( 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari' ),
+					'enum' => get_supported_browsers(),
 				),
 			),
 		)
 	);
-
 }
 
 /**
