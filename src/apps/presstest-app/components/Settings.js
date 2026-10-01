@@ -3,11 +3,13 @@ import axios from 'axios';
 import Select from 'react-select';
 import { TEST_OPTIONS } from '../data/tests';
 import BROWSERS from '../data/browsers';
+import TestDataFields from './TestDataFields';
+import TestSessions from './TestSessions';
 
 const settings = window.presstest_companion;
 
 /**
- * Settings panel for managing the API key and scheduled test configuration.
+ * Settings panel for managing the API key, scheduled tests, and test data.
  *
  * Reads and writes values via the WordPress /wp/v2/settings REST endpoint.
  * Cron schedule options are fetched from the plugin's own REST endpoint on mount.
@@ -26,6 +28,9 @@ function Settings() {
 	const [cronBrowser, setCronBrowser]         = useState( 'chromium' );
 	const [scheduleOptions, setScheduleOptions] = useState( {} );
 
+	const [testDataEnabled, setTestDataEnabled] = useState( false );
+	const [testDataRoles, setTestDataRoles]     = useState( [] );
+
 	useEffect( () => {
 		const axiosInstance = axios.create();
 		axiosInstance.interceptors.request.use( config => {
@@ -42,6 +47,8 @@ function Settings() {
 				setCronEnabled( data.presstest_companion_cron_enabled ?? false );
 				setCronSchedule( data.presstest_companion_cron_schedule ?? 'daily' );
 				setCronBrowser( data.presstest_companion_cron_browser ?? 'chromium' );
+				setTestDataEnabled( data.presstest_companion_test_data_enabled ?? false );
+				setTestDataRoles( data.presstest_companion_test_data_roles ?? [] );
 
 				const rawTests = data.presstest_companion_cron_tests ?? '';
 				setCronTests( rawTests.split( ',' ).map( t => t.trim() ).filter( Boolean ) );
@@ -97,6 +104,8 @@ function Settings() {
 					presstest_companion_cron_url:      settings.site_url,
 					presstest_companion_cron_tests:    cronTests.join( ',' ),
 					presstest_companion_cron_browser:  cronBrowser,
+					presstest_companion_test_data_enabled: testDataEnabled,
+					presstest_companion_test_data_roles:   testDataRoles,
 				}
 			);
 			setMessage( { type: 'success', text: 'Settings saved.' } );
@@ -185,6 +194,15 @@ function Settings() {
 					</select>
 				</fieldset>
 
+				<hr />
+
+				<TestDataFields
+					enabled={testDataEnabled}
+					onEnabled={setTestDataEnabled}
+					roles={testDataRoles}
+					onRoles={setTestDataRoles}
+				/>
+
 				<input
 					type='submit'
 					value={saving ? 'Saving…' : 'Save Settings'}
@@ -192,6 +210,10 @@ function Settings() {
 					disabled={saving}
 				/>
 			</form>
+
+			<hr />
+
+			<TestSessions />
 
 			<hr />
 

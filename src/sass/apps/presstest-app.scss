@@ -21,9 +21,15 @@
                 flex: 2;
             }
 
-            label.fieldset-instruction {
+            label.fieldset-instruction,
+            span.fieldset-instruction {
                 width: 100%;
                 font-weight: 600;
+                margin-bottom: 0.25rem;
+            }
+
+            .checkbox-label--stacked {
+                width: 100%;
                 margin-bottom: 0.25rem;
             }
 
@@ -62,6 +68,10 @@
 
         h3 {
             margin-bottom: 0.5rem;
+        }
+
+        .test-sessions__table {
+            margin-top: 1rem;
         }
     }
 

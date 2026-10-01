@@ -20,6 +20,7 @@ namespace PIE\PresstestCompanion;
 function load_plugin(): void {
 	load_dependencies();
 	set_locale();
+	TestSessions\Bootstrap::init();
 }
 
 /**

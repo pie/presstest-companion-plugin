@@ -27,6 +27,7 @@ if ( ! defined( 'WPINC' ) ) {
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once 'definitions.php';
+require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/test-sessions/autoload.php';
 
 /**
  * Runs during plugin activation.
@@ -40,13 +41,15 @@ function activate_presstest_companion(): void {
 register_activation_hook( __FILE__, __NAMESPACE__ . '\activate_presstest_companion' );
 
 /**
- * Runs during plugin deactivation — clears any scheduled test events.
+ * Runs during plugin deactivation — clears any scheduled test events and
+ * removes any test data still held by unfinished test sessions.
  *
  * @since 1.0.0
  */
 function deactivate_presstest_companion(): void {
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/cron.php';
 	unschedule_presstest_cron();
+	TestSessions\Bootstrap::deactivate();
 }
 register_deactivation_hook( __FILE__, __NAMESPACE__ . '\deactivate_presstest_companion' );
 
