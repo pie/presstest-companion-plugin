@@ -1,0 +1,430 @@
+<?php
+/**
+ * WordPress core integration: users, posts (including attachments and any
+ * custom post type), comments, and terms.
+ *
+ * Only objects created during a session are recorded and removed. Changes a
+ * test makes to existing content are not reverted, so tests should work on
+ * data they created themselves.
+ *
+ * @package PIE\PresstestCompanion\TestSessions
+ * @since   1.3.0
+ */
+
+namespace PIE\PresstestCompanion\TestSessions\Integrations;
+
+use PIE\PresstestCompanion\TestSessions\Cleaner;
+use PIE\PresstestCompanion\TestSessions\Email_Capture;
+use PIE\PresstestCompanion\TestSessions\Session;
+use PIE\PresstestCompanion\TestSessions\Test_Data_Settings;
+use PIE\PresstestCompanion\TestSessions\Tracker;
+
+/**
+ * Tracking, cleanup, and fixtures for core WordPress objects.
+ */
+class WordPress extends Abstract_Integration {
+
+	/**
+	 * Integration slug.
+	 *
+	 * @return string
+	 */
+	public function get_slug(): string {
+		return 'wordpress'; // phpcs:ignore WordPress.WP.CapitalPDangit.MisspelledInText -- a slug, not the brand name.
+	}
+
+	/**
+	 * Integration display name.
+	 *
+	 * @return string
+	 */
+	public function get_name(): string {
+		return 'WordPress';
+	}
+
+	/**
+	 * Core is always active.
+	 *
+	 * @return bool
+	 */
+	public function is_active(): bool {
+		return true;
+	}
+
+	/**
+	 * Records core objects as they are created.
+	 *
+	 * @return void
+	 */
+	public function register_hooks(): void {
+		add_action( 'user_register', array( $this, 'track_user' ) );
+		add_action( 'wp_insert_post', array( $this, 'track_post' ), 10, 3 );
+		add_action( 'wp_insert_comment', array( $this, 'track_comment' ) );
+		add_action( 'created_term', array( $this, 'track_term' ), 10, 3 );
+	}
+
+	/**
+	 * Records a new user.
+	 *
+	 * @param int $user_id User ID.
+	 * @return void
+	 */
+	public function track_user( int $user_id ): void {
+		Tracker::record( 'user', $user_id );
+	}
+
+	/**
+	 * Records a new post of any type. Updates and revisions are skipped:
+	 * revisions are removed with their parent post.
+	 *
+	 * @param int      $post_id Post ID.
+	 * @param \WP_Post $post    Post object.
+	 * @param bool     $update  Whether this is an update to an existing post.
+	 * @return void
+	 */
+	public function track_post( int $post_id, \WP_Post $post, bool $update ): void {
+		if ( true === $update || 'revision' === $post->post_type ) {
+			return;
+		}
+
+		Tracker::record( 'post', $post_id );
+	}
+
+	/**
+	 * Records a new comment, including WooCommerce order notes.
+	 *
+	 * @param int $comment_id Comment ID.
+	 * @return void
+	 */
+	public function track_comment( int $comment_id ): void {
+		Tracker::record( 'comment', $comment_id );
+	}
+
+	/**
+	 * Records a new term with its taxonomy, which deletion needs.
+	 *
+	 * @param int    $term_id  Term ID.
+	 * @param int    $tt_id    Term taxonomy ID.
+	 * @param string $taxonomy Taxonomy slug.
+	 * @return void
+	 */
+	public function track_term( int $term_id, int $tt_id, string $taxonomy ): void {
+		Tracker::record( 'term', $term_id, array( 'taxonomy' => $taxonomy ) );
+	}
+
+	/**
+	 * Cleanup order: comments, then posts, then users, then terms — terms
+	 * last, so they can be kept if anything outside the session still uses
+	 * them once the session's own objects are gone.
+	 *
+	 * @return array<string, array{priority: int, callback: callable}>
+	 */
+	public function get_cleanup_handlers(): array {
+		return array(
+			'comment' => array(
+				'priority' => 20,
+				'callback' => array( $this, 'delete_comment' ),
+			),
+			'post'    => array(
+				'priority' => 30,
+				'callback' => array( $this, 'delete_post' ),
+			),
+			'user'    => array(
+				'priority' => 90,
+				'callback' => array( $this, 'delete_user' ),
+			),
+			'term'    => array(
+				'priority' => 92,
+				'callback' => array( $this, 'delete_term' ),
+			),
+		);
+	}
+
+	/**
+	 * Permanently deletes a comment.
+	 *
+	 * @param int $comment_id Comment ID.
+	 * @return bool True once the comment is gone.
+	 */
+	public function delete_comment( int $comment_id ): bool {
+		if ( null === get_comment( $comment_id ) ) {
+			return true;
+		}
+
+		return true === wp_delete_comment( $comment_id, true );
+	}
+
+	/**
+	 * Permanently deletes a post, including attachment files from disk.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool True once the post is gone.
+	 */
+	public function delete_post( int $post_id ): bool {
+		$post = get_post( $post_id );
+
+		if ( null === $post ) {
+			return true;
+		}
+
+		$result = 'attachment' === $post->post_type ? wp_delete_attachment( $post_id, true ) : wp_delete_post( $post_id, true );
+
+		return $result instanceof \WP_Post;
+	}
+
+	/**
+	 * Deletes a term, unless something outside the session still uses it.
+	 *
+	 * Plugins create shared terms on first use (e.g. a status marker added to
+	 * the first user who registers). If a test request happened to create one
+	 * and real site traffic has since used it too, deleting it would strip it
+	 * from real data — so it is kept.
+	 *
+	 * @param int        $term_id Term ID.
+	 * @param array|null $data    Recorded data: array( 'taxonomy' => string ).
+	 * @return bool|string True once the term is gone, Cleaner::KEPT if still in use.
+	 */
+	public function delete_term( int $term_id, ?array $data ) {
+		global $wpdb;
+
+		$taxonomy = (string) ( $data['taxonomy'] ?? '' );
+		$term     = '' !== $taxonomy ? get_term( $term_id, $taxonomy ) : null;
+
+		if ( ! $term instanceof \WP_Term ) {
+			return true;
+		}
+
+		// Session objects were removed in earlier priorities, so any
+		// relationship left belongs to real content.
+		$in_use = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->term_relationships} WHERE term_taxonomy_id = %d", $term->term_taxonomy_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+
+		if ( 0 < $in_use ) {
+			return Cleaner::KEPT;
+		}
+
+		return true === wp_delete_term( $term_id, $taxonomy );
+	}
+
+	/**
+	 * Deletes a user and any content they still own.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool True once the user is gone.
+	 */
+	public function delete_user( int $user_id ): bool {
+		if ( false === get_userdata( $user_id ) ) {
+			return true;
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/user.php';
+
+		// Core removes a deleted post's term relationships but not a user's;
+		// plugins attach terms to users (e.g. PMPro's abandoned signup marker).
+		wp_delete_object_term_relationships( $user_id, get_object_taxonomies( 'user' ) );
+
+		if ( is_multisite() ) {
+			require_once ABSPATH . 'wp-admin/includes/ms.php';
+			return wpmu_delete_user( $user_id );
+		}
+
+		return wp_delete_user( $user_id );
+	}
+
+	/**
+	 * Fixture factories for core objects.
+	 *
+	 * @return array<string, callable>
+	 */
+	public function get_factories(): array {
+		return array(
+			'user'    => array( $this, 'create_user' ),
+			'post'    => array( $this, 'create_post' ),
+			'term'    => array( $this, 'create_term' ),
+			'comment' => array( $this, 'create_comment' ),
+		);
+	}
+
+	/**
+	 * Creates a test user with a unique login and an undeliverable address.
+	 *
+	 * Args: role (default "subscriber" — must be allowed in the plugin's test
+	 * data settings), first_name, last_name, meta (key => value).
+	 *
+	 * @param array   $args    Factory arguments.
+	 * @param Session $session Session the user belongs to.
+	 * @return array|\WP_Error Login details: id, username, email, password, role.
+	 */
+	public function create_user( array $args, Session $session ) {
+		$role = sanitize_key( (string) ( $args['role'] ?? 'subscriber' ) );
+
+		if ( ! in_array( $role, Test_Data_Settings::allowed_roles(), true ) ) {
+			return new \WP_Error(
+				'presstest_role_not_allowed',
+				sprintf(
+					/* translators: %s: role slug. */
+					__( 'Test users with the "%s" role are not allowed. Enable the role in Presstest > Settings > Test data.', 'presstest-companion' ),
+					$role
+				),
+				array( 'status' => 403 )
+			);
+		}
+
+		if ( null === get_role( $role ) ) {
+			return new \WP_Error(
+				'presstest_unknown_role',
+				/* translators: %s: role slug. */
+				sprintf( __( 'The "%s" role does not exist on this site.', 'presstest-companion' ), $role ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$username = sprintf( 'presstest_%d_%s', $session->get_id(), strtolower( wp_generate_password( 6, false ) ) );
+		$password = wp_generate_password( 24, false );
+		$email    = Email_Capture::test_address( $session->get_id() );
+
+		$user_id = wp_insert_user(
+			array(
+				'user_login' => $username,
+				'user_pass'  => $password,
+				'user_email' => $email,
+				'role'       => $role,
+				'first_name' => sanitize_text_field( (string) ( $args['first_name'] ?? 'Presstest' ) ),
+				'last_name'  => sanitize_text_field( (string) ( $args['last_name'] ?? 'User' ) ),
+			)
+		);
+
+		if ( is_wp_error( $user_id ) ) {
+			return $user_id;
+		}
+
+		foreach ( (array) ( $args['meta'] ?? array() ) as $key => $value ) {
+			update_user_meta( $user_id, sanitize_key( (string) $key ), $value );
+		}
+
+		return array(
+			'id'       => $user_id,
+			'username' => $username,
+			'email'    => $email,
+			'password' => $password,
+			'role'     => $role,
+		);
+	}
+
+	/**
+	 * Creates a post of any registered type.
+	 *
+	 * Args: post_type (default "post"), status (default "publish"), title,
+	 * content, author (user ID), meta (key => value).
+	 *
+	 * @param array   $args    Factory arguments.
+	 * @param Session $session Session the post belongs to.
+	 * @return array|\WP_Error Post details: id, url, post_type, status.
+	 */
+	public function create_post( array $args, Session $session ) {
+		$post_type = sanitize_key( (string) ( $args['post_type'] ?? 'post' ) );
+
+		if ( ! post_type_exists( $post_type ) ) {
+			/* translators: %s: post type slug. */
+			return new \WP_Error( 'presstest_unknown_post_type', sprintf( __( 'Post type "%s" does not exist.', 'presstest-companion' ), $post_type ), array( 'status' => 400 ) );
+		}
+
+		$post_id = wp_insert_post(
+			wp_slash(
+				array(
+					'post_type'    => $post_type,
+					'post_status'  => sanitize_key( (string) ( $args['status'] ?? 'publish' ) ),
+					'post_title'   => sanitize_text_field( (string) ( $args['title'] ?? sprintf( 'Presstest %s %d', $post_type, $session->get_id() ) ) ),
+					'post_content' => wp_kses_post( (string) ( $args['content'] ?? '' ) ),
+					'post_author'  => absint( $args['author'] ?? 0 ),
+					'meta_input'   => (array) ( $args['meta'] ?? array() ),
+				)
+			),
+			true
+		);
+
+		if ( is_wp_error( $post_id ) ) {
+			return $post_id;
+		}
+
+		return array(
+			'id'        => $post_id,
+			'url'       => get_permalink( $post_id ),
+			'post_type' => $post_type,
+			'status'    => get_post_status( $post_id ),
+		);
+	}
+
+	/**
+	 * Creates a term.
+	 *
+	 * Args: taxonomy (default "category"), name.
+	 *
+	 * @param array   $args    Factory arguments.
+	 * @param Session $session Session the term belongs to.
+	 * @return array|\WP_Error Term details: id, taxonomy, slug, url.
+	 */
+	public function create_term( array $args, Session $session ) {
+		$taxonomy = sanitize_key( (string) ( $args['taxonomy'] ?? 'category' ) );
+		$name     = sanitize_text_field( (string) ( $args['name'] ?? sprintf( 'Presstest %d %s', $session->get_id(), wp_generate_password( 6, false ) ) ) );
+
+		if ( ! taxonomy_exists( $taxonomy ) ) {
+			/* translators: %s: taxonomy slug. */
+			return new \WP_Error( 'presstest_unknown_taxonomy', sprintf( __( 'Taxonomy "%s" does not exist.', 'presstest-companion' ), $taxonomy ), array( 'status' => 400 ) );
+		}
+
+		$term = wp_insert_term( $name, $taxonomy );
+
+		if ( is_wp_error( $term ) ) {
+			return $term;
+		}
+
+		$created = get_term( (int) $term['term_id'], $taxonomy );
+		$link    = get_term_link( $created );
+
+		return array(
+			'id'       => (int) $term['term_id'],
+			'taxonomy' => $taxonomy,
+			'slug'     => $created->slug,
+			'url'      => is_wp_error( $link ) ? '' : $link,
+		);
+	}
+
+	/**
+	 * Creates a comment.
+	 *
+	 * Args: post_id (required), content, user_id, author_email, approved
+	 * (default true).
+	 *
+	 * @param array   $args    Factory arguments.
+	 * @param Session $session Session the comment belongs to.
+	 * @return array|\WP_Error Comment details: id, post_id.
+	 */
+	public function create_comment( array $args, Session $session ) {
+		$post_id = absint( $args['post_id'] ?? 0 );
+
+		if ( null === get_post( $post_id ) ) {
+			return new \WP_Error( 'presstest_unknown_post', __( 'A valid post_id is required to create a comment.', 'presstest-companion' ), array( 'status' => 400 ) );
+		}
+
+		$comment_id = wp_insert_comment(
+			wp_slash(
+				array(
+					'comment_post_ID'      => $post_id,
+					'comment_content'      => sanitize_textarea_field( (string) ( $args['content'] ?? 'Presstest comment.' ) ),
+					'user_id'              => absint( $args['user_id'] ?? 0 ),
+					'comment_author_email' => sanitize_email( (string) ( $args['author_email'] ?? Email_Capture::test_address( $session->get_id() ) ) ),
+					'comment_approved'     => false === ( $args['approved'] ?? true ) ? 0 : 1,
+				)
+			)
+		);
+
+		if ( false === $comment_id ) {
+			return new \WP_Error( 'presstest_comment_failed', __( 'The comment could not be created.', 'presstest-companion' ), array( 'status' => 500 ) );
+		}
+
+		return array(
+			'id'      => $comment_id,
+			'post_id' => $post_id,
+		);
+	}
+}

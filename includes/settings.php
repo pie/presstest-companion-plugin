@@ -37,6 +37,20 @@ function add_admin_page(): void {
 }
 
 /**
+ * Returns the browser slugs the Presstest server can run tests in.
+ *
+ * Single source of truth for validating the browser on both interactive runs
+ * and the scheduled test setting. Each slug must match a Playwright project
+ * name in the Presstest server's playwright.config.js.
+ *
+ * @since 1.2.1
+ * @return string[] Supported browser slugs.
+ */
+function get_supported_browsers(): array {
+	return array( 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari' );
+}
+
+/**
  * Register plugin settings with the Settings API and expose them via REST.
  *
  * Hooked to `init` (not `admin_init`) so the settings are registered on every
@@ -116,12 +130,55 @@ function register_settings(): void {
 			'show_in_rest'      => array(
 				'schema' => array(
 					'type' => 'string',
-					'enum' => array( 'chromium', 'firefox', 'webkit', 'mobile-chrome', 'mobile-safari' ),
+					'enum' => get_supported_browsers(),
 				),
 			),
 		)
 	);
 
+	// Test data: whether Presstest may create users, orders, etc. while
+	// testing, and which roles its test users may have. Administrator must be
+	// opted into explicitly — it is not in the default list.
+	register_setting(
+		'presstest_companion',
+		TestSessions\Test_Data_Settings::ENABLED_OPTION,
+		array(
+			'type'         => 'boolean',
+			'default'      => false,
+			'show_in_rest' => true,
+		)
+	);
+
+	register_setting(
+		'presstest_companion',
+		TestSessions\Test_Data_Settings::ROLES_OPTION,
+		array(
+			'type'              => 'array',
+			'default'           => TestSessions\Test_Data_Settings::DEFAULT_ROLES,
+			'sanitize_callback' => __NAMESPACE__ . '\sanitize_test_data_roles',
+			'show_in_rest'      => array(
+				'schema' => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'string' ),
+				),
+			),
+		)
+	);
+}
+
+/**
+ * Keeps only role slugs that exist on this site.
+ *
+ * @since 1.3.0
+ * @param mixed $roles Submitted role slugs.
+ * @return string[] Valid role slugs.
+ */
+function sanitize_test_data_roles( $roles ): array {
+	if ( ! is_array( $roles ) ) {
+		return array();
+	}
+
+	return array_values( array_filter( array_map( 'sanitize_key', $roles ), fn( string $role ): bool => null !== get_role( $role ) ) );
 }
 
 /**
