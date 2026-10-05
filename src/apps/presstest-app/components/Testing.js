@@ -20,7 +20,11 @@ const settings = window.presstest_companion;
 function Testing() {
 	const savedTests                            = settings.user_settings?.selected_tests ?? [];
 	const [selectedTests, updateSelectedTests]  = useState( Array.isArray( savedTests ) ? savedTests : [] );
-	const [selectedBrowser, setSelectedBrowser] = useState( settings.user_settings?.selected_browser ?? '' );
+	// Fall back to the first browser (Chrome) when the user has never saved one,
+	// or saved one that is no longer offered — an empty browser fails validation.
+	const savedBrowser                          = settings.user_settings?.selected_browser;
+	const initialBrowser                        = BROWSERS.some( b => b.value === savedBrowser ) ? savedBrowser : BROWSERS[0].value;
+	const [selectedBrowser, setSelectedBrowser] = useState( initialBrowser );
 	const [isTesting, setTestingStatus]         = useState( false );
 	const [message, updateMessage]              = useState( { type: '', message: '' } );
 
