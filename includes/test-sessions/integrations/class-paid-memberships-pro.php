@@ -20,12 +20,36 @@ use PIE\PresstestCompanion\TestSessions\Tracker;
 /**
  * Tracking, cleanup, safety checks, and fixtures for PMPro.
  */
-class Paid_Memberships_Pro extends Abstract_Integration {
+class Paid_Memberships_Pro extends Abstract_Integration implements Provides_Test_Context {
 
 	/**
 	 * Gateways that never take payment: "Testing Only" and "Pay by Check".
 	 */
 	const SAFE_GATEWAYS = array( '', 'check' );
+
+	/**
+	 * The pages assigned in Memberships > Settings > Pages, so tests never
+	 * assume their addresses. A page that isn't assigned is an empty string.
+	 *
+	 * Pass a level to the checkout with add_query_arg( 'pmpro_level', $id, $checkout_url ).
+	 *
+	 * @return array<string, string>
+	 */
+	public function get_test_context(): array {
+		$pages = array(
+			'account_url'      => 'account',
+			'billing_url'      => 'billing',
+			'cancel_url'       => 'cancel',
+			'checkout_url'     => 'checkout',
+			'confirmation_url' => 'confirmation',
+			'orders_url'       => 'invoice',
+			'levels_url'       => 'levels',
+			'login_url'        => 'login',
+			'profile_url'      => 'member_profile_edit',
+		);
+
+		return array_map( fn( string $page ): string => (string) pmpro_url( $page ), $pages );
+	}
 
 	/**
 	 * Integration slug.

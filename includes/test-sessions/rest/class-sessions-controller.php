@@ -7,7 +7,7 @@
  *   DELETE /sessions/{id}               — end a session and clean up (also accepts session credentials)
  *
  * Test routes (authenticated by session credentials, X-Presstest-Session: <id>.<token>):
- *   GET    /sessions/{id}/preflight     — check integrations are safe to test
+ *   GET    /sessions/{id}/preflight     — check integrations are safe to test, and get site details (e.g. page URLs)
  *   POST   /sessions/{id}/fixtures/{type} — create test data
  *   POST   /sessions/{id}/login         — log a session test user in (sets auth cookies)
  *   GET    /sessions/{id}/emails        — emails captured during the session
@@ -24,6 +24,7 @@ namespace PIE\PresstestCompanion\TestSessions\Rest;
 
 use PIE\PresstestCompanion\TestSessions\Cleaner;
 use PIE\PresstestCompanion\TestSessions\Integrations\Integration_Registry;
+use PIE\PresstestCompanion\TestSessions\Integrations\Provides_Test_Context;
 use PIE\PresstestCompanion\TestSessions\Notices;
 use PIE\PresstestCompanion\TestSessions\Session;
 use PIE\PresstestCompanion\TestSessions\Session_Context;
@@ -341,6 +342,10 @@ class Sessions_Controller {
 			}
 
 			$results[ $slug ] = $this->preflight_result( true, array() === $problems, $problems );
+
+			if ( $integration instanceof Provides_Test_Context ) {
+				$results[ $slug ]['context'] = $integration->get_test_context();
+			}
 		}
 
 		$ready = array() === array_filter( $results, fn( array $result ): bool => false === $result['ready'] );

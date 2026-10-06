@@ -27,7 +27,7 @@ use PIE\PresstestCompanion\TestSessions\Tracker;
 /**
  * Tracking, cleanup, safety checks, and fixtures for WooCommerce.
  */
-class WooCommerce extends Abstract_Integration implements Owns_Post_Types {
+class WooCommerce extends Abstract_Integration implements Owns_Post_Types, Provides_Test_Context {
 
 	/**
 	 * Gateways that never take payment online.
@@ -63,6 +63,25 @@ class WooCommerce extends Abstract_Integration implements Owns_Post_Types {
 			'shop_order'           => 'wc_order',
 			'shop_order_refund'    => 'wc_order',
 			'shop_order_placehold' => 'wc_order',
+		);
+	}
+
+	/**
+	 * Store settings tests must not assume: the configured page URLs (stores
+	 * can move the cart, checkout and account pages, and rename endpoints),
+	 * and where the store is and sells to, so checkout tests can enter an
+	 * address the store accepts.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function get_test_context(): array {
+		return array(
+			'cart_url'          => wc_get_cart_url(),
+			'checkout_url'      => wc_get_checkout_url(),
+			'account_url'       => wc_get_page_permalink( 'myaccount' ),
+			'orders_url'        => wc_get_account_endpoint_url( 'orders' ),
+			'base_country'      => WC()->countries->get_base_country(),
+			'allowed_countries' => array_keys( WC()->countries->get_allowed_countries() ),
 		);
 	}
 
