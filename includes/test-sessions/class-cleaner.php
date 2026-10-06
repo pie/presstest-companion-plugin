@@ -157,7 +157,7 @@ class Cleaner {
 	 * incomplete, failed, or abandoned mid-cleanup. Used by the admin purge
 	 * and on deactivation.
 	 *
-	 * @return int Number of sessions now fully cleaned.
+	 * @return int Number of sessions this call finished (status now ended).
 	 */
 	public function clean_unfinished(): int {
 		$cleaned = 0;
@@ -169,9 +169,19 @@ class Cleaner {
 
 		foreach ( $this->repository->unfinished_ids() as $session_id ) {
 			$session = $this->repository->find( $session_id );
-			$summary = null !== $session ? $this->clean( $session, Session::STATUS_ENDED ) : null;
 
-			if ( null !== $summary && 0 === $summary['outstanding'] ) {
+			if ( null === $session ) {
+				continue;
+			}
+
+			$this->clean( $session, Session::STATUS_ENDED );
+
+			// Count the stored outcome, not the summary: a session deferred
+			// for requests still running can report nothing outstanding yet
+			// stay incomplete, because those requests may still create data.
+			$after = $this->repository->find( $session_id );
+
+			if ( null !== $after && Session::STATUS_ENDED === $after->get_status() ) {
 				++$cleaned;
 			}
 		}

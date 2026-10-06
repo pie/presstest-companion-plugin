@@ -383,8 +383,8 @@ class Sessions_Controller {
 	}
 
 	/**
-	 * Logs in a test user created in this session by setting auth cookies on
-	 * the response. Browser contexts that share the caller's cookie jar (e.g.
+	 * Logs in a test user created in this session — if its current roles are
+	 * all allowed — by setting auth cookies on the response. Browser contexts that share the caller's cookie jar (e.g.
 	 * Playwright's context.request) are logged in immediately.
 	 *
 	 * @param \WP_REST_Request $request Incoming request.
@@ -396,6 +396,21 @@ class Sessions_Controller {
 
 		if ( false === $this->repository->has_object( $session->get_id(), 'user', $user_id ) ) {
 			return new \WP_Error( 'presstest_not_session_user', __( 'Only test users created in this session can be logged in.', 'presstest-companion' ), array( 'status' => 403 ) );
+		}
+
+		if ( false === get_userdata( $user_id ) ) {
+			return new \WP_Error( 'presstest_user_not_found', __( 'That test user no longer exists.', 'presstest-companion' ), array( 'status' => 404 ) );
+		}
+
+		// Revalidated on every login, not just at creation: users registered
+		// through the site's own forms get whatever role the site assigns, and
+		// any test user's privileges may have changed since.
+		if ( false === Test_Data_Settings::user_has_only_allowed_roles( $user_id ) ) {
+			return new \WP_Error(
+				'presstest_role_not_allowed',
+				__( 'This test user has a role or capability that is not allowed for test users, so it cannot be logged in. Allow the role in Presstest > Settings > Test data if this is intended.', 'presstest-companion' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		wp_set_auth_cookie( $user_id, false );

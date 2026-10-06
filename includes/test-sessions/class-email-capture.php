@@ -7,7 +7,9 @@
  * wp_mail filter, which core runs before pre_wp_mail and before PHPMailer — so
  * it still works when a "disable emails" or mail-logging plugin is active.
  *
- * An email belongs to a session when either:
+ * Any email with a recipient on the reserved test domain is blocked, even
+ * when its session has finished or no longer exists. It is also stored for
+ * the tests to check when it belongs to an open session, which is when either:
  *   - it is sent during a session request; or
  *   - any recipient — To, Cc or Bcc — is a session test user
  *     (presstest-<id>-…@presstest.invalid), which catches emails sent later
@@ -98,6 +100,18 @@ class Email_Capture {
 		$recipients = array_merge( self::normalise_list( $atts['to'] ?? array() ), self::copied_recipients( $headers ) );
 		$session    = Session_Context::current() ?? $this->session_for_recipients( $recipients );
 
+		// Mail to a reserved test address is never real mail, so it is blocked
+		// whatever state its session is in — including after the session has
+		// ended, expired, or been pruned (e.g. a renewal reminder sent by cron
+		// days later, copied to a real address).
+		if ( null === $session && false === self::has_test_address( $recipients ) ) {
+			return $atts;
+		}
+
+		$this->block_current = true;
+
+		// Only stored when there is an open session to store it against: a row
+		// for a finished session would never be cleaned up.
 		if ( null === $session ) {
 			return $atts;
 		}
@@ -112,8 +126,6 @@ class Email_Capture {
 				'attachments' => array_map( 'wp_basename', self::normalise_list( $atts['attachments'] ?? array(), "\n" ) ),
 			)
 		);
-
-		$this->block_current = true;
 
 		return $atts;
 	}
@@ -148,6 +160,24 @@ class Email_Capture {
 
 		$this->block_current = false;
 		$phpmailer->clearAllRecipients();
+	}
+
+	/**
+	 * Whether any recipient uses the reserved test domain.
+	 *
+	 * @param string[] $recipients Recipient addresses, possibly with names.
+	 * @return bool
+	 */
+	private static function has_test_address( array $recipients ): bool {
+		$pattern = '/@' . preg_quote( self::TEST_EMAIL_DOMAIN, '/' ) . '>?$/i';
+
+		foreach ( $recipients as $recipient ) {
+			if ( 1 === preg_match( $pattern, trim( $recipient ) ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

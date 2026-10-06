@@ -50,4 +50,27 @@ class Test_Data_Settings {
 		$roles = get_option( self::ROLES_OPTION, self::DEFAULT_ROLES );
 		return is_array( $roles ) ? array_values( array_filter( $roles, 'is_string' ) ) : self::DEFAULT_ROLES;
 	}
+
+	/**
+	 * Whether a user's current roles and directly granted capabilities are all
+	 * allowed roles.
+	 *
+	 * Checked when test users are created and again whenever one is logged
+	 * in, because a session's users can come from the site's own registration
+	 * forms (which assign whatever role the site or a plugin chooses) and
+	 * their privileges can change after creation.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function user_has_only_allowed_roles( int $user_id ): bool {
+		// Roles are cached on the user object; read them fresh.
+		clean_user_cache( $user_id );
+		$user = new \WP_User( $user_id );
+
+		// $user->caps holds both roles and any directly granted capabilities.
+		$granted = array_keys( array_filter( $user->caps ) );
+
+		return array() === array_diff( $granted, self::allowed_roles() );
+	}
 }

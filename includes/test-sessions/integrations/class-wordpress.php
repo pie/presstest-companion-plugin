@@ -202,18 +202,25 @@ class WordPress extends Abstract_Integration {
 	}
 
 	/**
-	 * Deletes a term, unless something outside the session still uses it.
+	 * Deletes a term once nothing uses it.
 	 *
-	 * Plugins create shared terms on first use (e.g. a status marker added to
-	 * the first user who registers). If a test request happened to create one
-	 * and real site traffic has since used it too, deleting it would strip it
-	 * from real data — so it is kept.
+	 * Terms are cleaned after posts and users, so whatever still uses one is
+	 * either real content or a session object whose own cleanup failed or was
+	 * deferred:
+	 *   - real content: the term is kept for good. Plugins create shared terms
+	 *     on first use (e.g. a status marker on the first user to register),
+	 *     and deleting one a real visitor also has would strip it from them;
+	 *   - only this session's outstanding objects: the term is deferred, so a
+	 *     retry deletes it once those objects are gone.
 	 *
 	 * @param int        $term_id Term ID.
 	 * @param array|null $data    Recorded data: array( 'taxonomy' => string ).
-	 * @return bool|string True once the term is gone, Cleaner::KEPT if still in use.
+	 * @param Session    $session Session being cleaned.
+	 * @return bool|string True once the term is gone, Cleaner::KEPT if real
+	 *                     content uses it, Cleaner::DEFERRED if only test
+	 *                     objects awaiting cleanup do.
 	 */
-	public function delete_term( int $term_id, ?array $data ) {
+	public function delete_term( int $term_id, ?array $data, Session $session ) {
 		global $wpdb;
 
 		$taxonomy = (string) ( $data['taxonomy'] ?? '' );
@@ -223,15 +230,43 @@ class WordPress extends Abstract_Integration {
 			return true;
 		}
 
-		// Session objects were removed in earlier priorities, so any
-		// relationship left belongs to real content.
-		$in_use = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$wpdb->term_relationships} WHERE term_taxonomy_id = %d", $term->term_taxonomy_id ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		$object_ids = array_map(
+			'intval',
+			$wpdb->get_col( $wpdb->prepare( "SELECT object_id FROM {$wpdb->term_relationships} WHERE term_taxonomy_id = %d", $term->term_taxonomy_id ) ) // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		);
 
-		if ( 0 < $in_use ) {
-			return Cleaner::KEPT;
+		if ( array() === $object_ids ) {
+			return true === wp_delete_term( $term_id, $taxonomy );
 		}
 
-		return true === wp_delete_term( $term_id, $taxonomy );
+		// Relationship object IDs are user IDs for user taxonomies and post
+		// IDs for everything else; check them against the matching records.
+		$taxonomy_object = get_taxonomy( $taxonomy );
+		$object_types    = false !== $taxonomy_object ? (array) $taxonomy_object->object_type : array();
+		$record_types    = array();
+
+		if ( in_array( 'user', $object_types, true ) ) {
+			$record_types[] = 'user';
+		}
+
+		if ( array() === $object_types || array() !== array_diff( $object_types, array( 'user' ) ) ) {
+			$record_types[] = 'post';
+		}
+
+		$repository        = new Session_Repository();
+		$used_by_real_data = array() !== array_filter(
+			$object_ids,
+			function ( int $object_id ) use ( $repository, $session, $record_types ): bool {
+				foreach ( $record_types as $record_type ) {
+					if ( true === $repository->has_object( $session->get_id(), $record_type, $object_id ) ) {
+						return false;
+					}
+				}
+				return true;
+			}
+		);
+
+		return true === $used_by_real_data ? Cleaner::KEPT : Cleaner::DEFERRED;
 	}
 
 	/**
@@ -241,22 +276,27 @@ class WordPress extends Abstract_Integration {
 	 * @return bool True once the user is gone.
 	 */
 	public function delete_user( int $user_id ): bool {
-		if ( false === get_userdata( $user_id ) ) {
-			return true;
-		}
-
 		require_once ABSPATH . 'wp-admin/includes/user.php';
+
+		if ( false !== get_userdata( $user_id ) ) {
+			if ( is_multisite() ) {
+				require_once ABSPATH . 'wp-admin/includes/ms.php';
+			}
+
+			$deleted = is_multisite() ? wpmu_delete_user( $user_id ) : wp_delete_user( $user_id );
+
+			if ( true !== $deleted ) {
+				return false;
+			}
+		}
 
 		// Core removes a deleted post's term relationships but not a user's;
 		// plugins attach terms to users (e.g. PMPro's abandoned signup marker).
+		// Done only once the user is gone, so a failed deletion leaves the
+		// relationships in place and their terms are deferred, not orphaned.
 		wp_delete_object_term_relationships( $user_id, get_object_taxonomies( 'user' ) );
 
-		if ( is_multisite() ) {
-			require_once ABSPATH . 'wp-admin/includes/ms.php';
-			return wpmu_delete_user( $user_id );
-		}
-
-		return wp_delete_user( $user_id );
+		return true;
 	}
 
 	/**
@@ -352,7 +392,7 @@ class WordPress extends Abstract_Integration {
 
 		// Defence in depth: whatever set them (this request or another
 		// plugin's hook), a test user must end up with allowed roles only.
-		if ( false === self::has_only_allowed_roles( $user_id ) ) {
+		if ( false === Test_Data_Settings::user_has_only_allowed_roles( $user_id ) ) {
 			$this->delete_user( $user_id );
 
 			return new \WP_Error(
@@ -386,27 +426,10 @@ class WordPress extends Abstract_Integration {
 	}
 
 	/**
-	 * Whether a user's roles and direct capabilities are all allowed roles.
-	 *
-	 * @param int $user_id User ID.
-	 * @return bool
-	 */
-	private static function has_only_allowed_roles( int $user_id ): bool {
-		// Roles are cached on the user object; read them fresh.
-		clean_user_cache( $user_id );
-		$user = new \WP_User( $user_id );
-
-		// $user->caps holds both roles and any directly granted capabilities.
-		$granted = array_keys( array_filter( $user->caps ) );
-
-		return array() === array_diff( $granted, Test_Data_Settings::allowed_roles() );
-	}
-
-	/**
 	 * Creates a post of any registered type.
 	 *
-	 * Args: post_type (default "post"), status (default "publish"), title,
-	 * content, author (user ID), meta (key => value).
+	 * Args: post_type (default "post"; not "attachment"), status (default
+	 * "publish"), title, content, author (user ID), meta (key => value).
 	 *
 	 * @param array   $args    Factory arguments.
 	 * @param Session $session Session the post belongs to.
@@ -418,6 +441,19 @@ class WordPress extends Abstract_Integration {
 		if ( ! post_type_exists( $post_type ) ) {
 			/* translators: %s: post type slug. */
 			return new \WP_Error( 'presstest_unknown_post_type', sprintf( __( 'Post type "%s" does not exist.', 'presstest-companion' ), $post_type ), array( 'status' => 400 ) );
+		}
+
+		// An attachment's files are deleted with it, and this factory can't
+		// establish that the session owns them: pointing _wp_attached_file at
+		// an existing upload would make cleanup delete the site's file. Tests
+		// that need media should upload it (uploads are recorded with files
+		// the session created).
+		if ( 'attachment' === $post_type ) {
+			return new \WP_Error(
+				'presstest_attachment_not_allowed',
+				__( 'Attachments cannot be created with the post fixture. Upload the file through the site (e.g. the media library) instead; uploads made during a test run are removed afterwards.', 'presstest-companion' ),
+				array( 'status' => 400 )
+			);
 		}
 
 		$post_id = wp_insert_post(

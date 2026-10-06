@@ -66,20 +66,52 @@ class Bootstrap {
 	}
 
 	/**
-	 * Whether this is the runner calling a session route with its report
-	 * secret. The secret itself is checked by the route's permission callback.
+	 * Whether this is the runner starting or ending a session with this
+	 * site's report secret — the only test traffic allowed through without
+	 * open session credentials, so it can always clean up.
+	 *
+	 * Both the secret and the route are checked here: the guard runs before
+	 * WordPress routes the request, so a non-REST request (e.g. a checkout)
+	 * would never reach the REST permission check that validates the secret.
 	 *
 	 * @return bool
 	 */
 	private static function is_runner_request(): bool {
-		if ( ! isset( $_SERVER['HTTP_X_PRESSTEST_TOKEN'] ) ) {
+		$secret = (string) get_option( 'presstest_companion_report_secret', '' );
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- compared with hash_equals() only.
+		$token = isset( $_SERVER['HTTP_X_PRESSTEST_TOKEN'] ) ? (string) wp_unslash( $_SERVER['HTTP_X_PRESSTEST_TOKEN'] ) : '';
+
+		if ( '' === $secret || ! hash_equals( $secret, $token ) ) {
 			return false;
 		}
 
-		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only matched against a fixed pattern.
-		$uri = isset( $_SERVER['REQUEST_URI'] ) ? rawurldecode( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : '';
+		$route  = untrailingslashit( self::rest_route() );
 
-		return 1 === preg_match( '#presstest-companion/v1/sessions(/|$|\?|&)#', $uri );
+		return ( 'POST' === $method && '/presstest-companion/v1/sessions' === $route )
+			|| ( 'DELETE' === $method && 1 === preg_match( '#^/presstest-companion/v1/sessions/\d+$#', $route ) );
+	}
+
+	/**
+	 * The REST route this request will be served as, worked out the way
+	 * WordPress routes it: the rest_route query parameter (which WordPress
+	 * serves as a REST request whatever the path), or a path made of the
+	 * site's home path, the REST prefix, and the route.
+	 *
+	 * @return string The route, e.g. "/presstest-companion/v1/sessions/12", or "" if this isn't a REST request.
+	 */
+	private static function rest_route(): string {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- read-only routing, matched against fixed routes.
+		if ( isset( $_GET['rest_route'] ) && is_string( $_GET['rest_route'] ) ) {
+			return '/' . ltrim( wp_unslash( $_GET['rest_route'] ), '/' );
+		}
+
+		$path = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_parse_url( rawurldecode( wp_unslash( $_SERVER['REQUEST_URI'] ) ), PHP_URL_PATH ) : '';
+		// phpcs:enable
+
+		$base = untrailingslashit( (string) wp_parse_url( home_url(), PHP_URL_PATH ) ) . '/' . rest_get_url_prefix();
+
+		return 0 === strpos( $path, $base . '/' ) ? substr( $path, strlen( $base ) ) : '';
 	}
 
 	/**
