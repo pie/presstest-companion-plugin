@@ -34,6 +34,23 @@ class Session {
 	const STATUS_EXPIRED = 'expired';
 
 	/**
+	 * Cleanup ran but test data remains (a handler failed, no handler was
+	 * available, or more data appeared). Retried by the hourly expiry job.
+	 */
+	const STATUS_INCOMPLETE = 'incomplete';
+
+	/**
+	 * Cleanup kept failing for Cleaner::MAX_ATTEMPTS attempts. No longer
+	 * retried automatically; the admin purge still retries it.
+	 */
+	const STATUS_FAILED = 'failed';
+
+	/**
+	 * Statuses whose remaining test data can be cleaned up.
+	 */
+	const CLEANABLE_STATUSES = array( self::STATUS_ACTIVE, self::STATUS_INCOMPLETE, self::STATUS_FAILED );
+
+	/**
 	 * Session ID.
 	 *
 	 * @var int

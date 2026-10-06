@@ -44,7 +44,7 @@ function TestDataFields( { enabled, onEnabled, roles, onRoles } ) {
 				</label>
 			</fieldset>
 			<fieldset>
-				<span className='fieldset-instruction'>Roles test users may have:</span>
+				<legend className='fieldset-instruction'>Roles test users may have:</legend>
 				{ settings.roles.map( role => (
 					<label key={role.value} className='checkbox-label checkbox-label--stacked'>
 						<input

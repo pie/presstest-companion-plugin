@@ -162,12 +162,16 @@ class Session_Context {
 		$repository = new Session_Repository();
 		$session    = $repository->find_open_by_credentials( $credentials['id'], $credentials['token'] );
 
-		if ( null !== $session ) {
-			$repository->begin_request( $session->get_id() );
-			self::$counted = true;
-			// Shutdown functions run even after a fatal error.
-			register_shutdown_function( array( self::class, 'release' ) );
+		// The lookup above validates the token; only the atomic claim decides
+		// whether the session is still open. If cleanup closed it in between,
+		// this request is treated as ordinary site traffic.
+		if ( null === $session || false === $repository->begin_request( $session->get_id() ) ) {
+			return null;
 		}
+
+		self::$counted = true;
+		// Shutdown functions run even after a fatal error.
+		register_shutdown_function( array( self::class, 'release' ) );
 
 		return $session;
 	}

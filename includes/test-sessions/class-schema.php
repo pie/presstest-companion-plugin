@@ -32,24 +32,68 @@ class Schema {
 	const VERSION_OPTION = 'presstest_companion_sessions_db_version';
 
 	/**
+	 * Transient set after a failed migration, so a persistent database
+	 * problem doesn't re-run dbDelta() on every request.
+	 */
+	const RETRY_TRANSIENT = 'presstest_companion_sessions_db_retry';
+
+	/**
+	 * Seconds to wait before retrying a failed migration.
+	 */
+	const RETRY_DELAY = 5 * MINUTE_IN_SECONDS;
+
+	/**
 	 * Installs or upgrades the tables if the stored version is out of date.
 	 *
-	 * Cheap enough to run on every request: a single autoloaded option read.
+	 * Cheap enough to run on every request: a single autoloaded option read
+	 * (plus a transient read while a failed migration is backing off).
 	 *
 	 * @return void
 	 */
 	public static function maybe_upgrade(): void {
-		if ( self::SCHEMA_VERSION !== get_option( self::VERSION_OPTION, '' ) ) {
+		if ( self::SCHEMA_VERSION !== get_option( self::VERSION_OPTION, '' ) && false === get_transient( self::RETRY_TRANSIENT ) ) {
 			self::install();
 		}
 	}
 
 	/**
-	 * Creates or updates all session tables via dbDelta().
+	 * Creates or updates all session tables via dbDelta(), and records the
+	 * schema version only once the tables are confirmed to match.
 	 *
-	 * @return void
+	 * The dbDelta() function doesn't report failures, so the migration is
+	 * confirmed with a dry run: any change it would still make means a CREATE
+	 * or ALTER failed (e.g. a permissions or connection error). The version is
+	 * then left unrecorded so the migration is retried after RETRY_DELAY.
+	 *
+	 * @return bool True if the tables match the current schema.
 	 */
-	public static function install(): void {
+	public static function install(): bool {
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$sql = self::definitions();
+		dbDelta( $sql );
+
+		$pending = dbDelta( $sql, false );
+
+		if ( array() !== $pending ) {
+			set_transient( self::RETRY_TRANSIENT, 1, self::RETRY_DELAY );
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- surfaced in the server error log for whoever investigates.
+			error_log( 'Presstest Companion: test session tables could not be created or updated; retrying in ' . self::RETRY_DELAY . 's. Outstanding changes: ' . implode( ' | ', $pending ) );
+			return false;
+		}
+
+		delete_transient( self::RETRY_TRANSIENT );
+		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION );
+
+		return true;
+	}
+
+	/**
+	 * CREATE TABLE statements for every session table, in dbDelta() format.
+	 *
+	 * @return string
+	 */
+	private static function definitions(): string {
 		global $wpdb;
 
 		$charset  = $wpdb->get_charset_collate();
@@ -96,10 +140,7 @@ class Schema {
 			KEY session_id (session_id)
 		) {$charset};";
 
-		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-		dbDelta( $sql );
-
-		update_option( self::VERSION_OPTION, self::SCHEMA_VERSION );
+		return $sql;
 	}
 
 	/**

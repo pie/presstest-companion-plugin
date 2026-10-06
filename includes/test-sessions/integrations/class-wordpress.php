@@ -278,6 +278,26 @@ class WordPress extends Abstract_Integration {
 			);
 		}
 
+		// Roles and capabilities are stored as user meta, so writing them
+		// here would bypass the allowed-roles check above. Refuse before the
+		// user is created, so a rejected request leaves nothing behind.
+		$meta = array();
+
+		foreach ( (array) ( $args['meta'] ?? array() ) as $key => $value ) {
+			$key = sanitize_key( (string) $key );
+
+			if ( true === self::is_privilege_meta_key( $key ) ) {
+				return new \WP_Error(
+					'presstest_meta_not_allowed',
+					/* translators: %s: user meta key. */
+					sprintf( __( 'User meta "%s" controls roles and capabilities and cannot be set on test users. Use the role argument instead.', 'presstest-companion' ), $key ),
+					array( 'status' => 403 )
+				);
+			}
+
+			$meta[ $key ] = $value;
+		}
+
 		$username = sprintf( 'presstest_%d_%s', $session->get_id(), strtolower( wp_generate_password( 6, false ) ) );
 		$password = wp_generate_password( 24, false );
 		$email    = Email_Capture::test_address( $session->get_id() );
@@ -297,8 +317,20 @@ class WordPress extends Abstract_Integration {
 			return $user_id;
 		}
 
-		foreach ( (array) ( $args['meta'] ?? array() ) as $key => $value ) {
-			update_user_meta( $user_id, sanitize_key( (string) $key ), $value );
+		foreach ( $meta as $key => $value ) {
+			update_user_meta( $user_id, $key, $value );
+		}
+
+		// Defence in depth: whatever set them (this request or another
+		// plugin's hook), a test user must end up with allowed roles only.
+		if ( false === self::has_only_allowed_roles( $user_id ) ) {
+			$this->delete_user( $user_id );
+
+			return new \WP_Error(
+				'presstest_role_not_allowed',
+				__( 'The test user was given a role or capability that is not allowed, so it was removed. Check for plugins that change roles when users are created.', 'presstest-companion' ),
+				array( 'status' => 403 )
+			);
 		}
 
 		return array(
@@ -308,6 +340,37 @@ class WordPress extends Abstract_Integration {
 			'password' => $password,
 			'role'     => $role,
 		);
+	}
+
+	/**
+	 * Whether a user meta key holds roles or capabilities.
+	 *
+	 * Matches {prefix}capabilities and {prefix}user_level for any table prefix
+	 * and every multisite site (e.g. wp_2_capabilities). Case-insensitive,
+	 * because MySQL compares meta keys case-insensitively.
+	 *
+	 * @param string $key Sanitised meta key.
+	 * @return bool
+	 */
+	private static function is_privilege_meta_key( string $key ): bool {
+		return 1 === preg_match( '/(^|_)(capabilities|user_level)$/i', $key );
+	}
+
+	/**
+	 * Whether a user's roles and direct capabilities are all allowed roles.
+	 *
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	private static function has_only_allowed_roles( int $user_id ): bool {
+		// Roles are cached on the user object; read them fresh.
+		clean_user_cache( $user_id );
+		$user = new \WP_User( $user_id );
+
+		// $user->caps holds both roles and any directly granted capabilities.
+		$granted = array_keys( array_filter( $user->caps ) );
+
+		return array() === array_diff( $granted, Test_Data_Settings::allowed_roles() );
 	}
 
 	/**

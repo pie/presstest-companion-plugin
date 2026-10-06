@@ -16,7 +16,24 @@ const restClient = () => {
 };
 
 /**
- * Formats a session's cleanup summary, e.g. "2 user, 1 wc_order".
+ * Statuses of sessions that may still hold test data.
+ */
+const HOLDING_STATUSES = [ 'active', 'cleaning', 'incomplete', 'failed' ];
+
+/**
+ * Adds up a summary's per-type counts, e.g. { user: 2, post: 1 } → 3.
+ *
+ * @param {object|undefined} counts Counts keyed by object type.
+ * @returns {number}
+ */
+const totalCount = counts => Object.values( counts ?? {} ).reduce( ( total, count ) => total + count, 0 );
+
+/**
+ * Formats a session's cleanup summary, e.g.
+ * "2 user, 1 wc_order removed; 1 with no cleanup handler (my_booking)".
+ *
+ * Everything that wasn't removed is listed, so a partial cleanup never reads
+ * as a successful one.
  *
  * @param {object|null} summary Cleanup summary from the API.
  * @returns {string}
@@ -26,12 +43,31 @@ const describeSummary = summary => {
 		return '—';
 	}
 
-	const deleted = Object.entries( summary.deleted ?? {} ).map( ( [ type, count ] ) => `${count} ${type}` );
-	const failed  = ( summary.failed ?? [] ).length;
-	const kept    = Object.values( summary.kept ?? {} ).reduce( ( total, count ) => total + count, 0 );
-	const parts   = 0 < deleted.length ? deleted : [ 'nothing created' ];
+	const deleted   = Object.entries( summary.deleted ?? {} ).map( ( [ type, count ] ) => `${count} ${type}` );
+	const kept      = totalCount( summary.kept );
+	const unhandled = totalCount( summary.unhandled );
+	const failed    = ( summary.failed ?? [] ).length;
+	const pending   = summary.outstanding ?? 0;
 
-	return parts.join( ', ' ) + ( 0 < kept ? ` (${kept} kept, still in use)` : '' ) + ( 0 < failed ? ` (${failed} failed)` : '' );
+	const parts = [ 0 < deleted.length ? `${deleted.join( ', ' )} removed` : 'Nothing removed' ];
+
+	if ( 0 < kept ) {
+		parts.push( `${kept} kept (still in use)` );
+	}
+
+	if ( 0 < unhandled ) {
+		parts.push( `${unhandled} with no cleanup handler (${Object.keys( summary.unhandled ).join( ', ' )})` );
+	}
+
+	if ( 0 < failed ) {
+		parts.push( `${failed} failed` );
+	}
+
+	if ( 0 < pending ) {
+		parts.push( `${pending} still to remove after ${summary.attempts ?? 1} attempt(s)` );
+	}
+
+	return parts.join( '; ' );
 };
 
 /**
@@ -82,7 +118,7 @@ function TestSessions() {
 		setPurging( false );
 	};
 
-	const unfinished = sessions.filter( session => [ 'active', 'cleaning' ].includes( session.status ) );
+	const unfinished = sessions.filter( session => HOLDING_STATUSES.includes( session.status ) );
 
 	return (
 		<div className='test-sessions'>
@@ -94,7 +130,7 @@ function TestSessions() {
 					<p>
 						{ 0 === unfinished.length
 							? 'No test data is currently held on this site.'
-							: `${unfinished.length} session(s) currently hold test data. It is removed automatically when each run finishes, or within an hour if a run is interrupted.` }
+							: `${unfinished.length} session(s) currently hold test data. It is removed automatically when each run finishes. If a run was interrupted, or cleanup needs retrying, it is removed once the session has expired, the next time WordPress runs its scheduled tasks — use the button to remove it now.` }
 					</p>
 					<button
 						type='button'

@@ -101,27 +101,28 @@ class Session_Repository {
 	}
 
 	/**
-	 * Atomically moves a session from one status to another.
-	 *
-	 * Used to claim a session for cleanup: only one caller can win the
-	 * active → cleaning transition, so cleanup never runs twice concurrently.
+	 * Atomically claims a session for cleanup, recording when it was claimed
+	 * (in ended_at, until finish() overwrites it) so a cleanup that dies
+	 * part-way can be detected and released.
 	 *
 	 * @param int    $id   Session ID.
-	 * @param string $from Expected current status.
-	 * @param string $to   New status.
-	 * @return bool True if this call made the transition.
+	 * @param string $from Status the session is expected to have.
+	 * @return bool True if this call claimed the session.
 	 */
-	public function transition( int $id, string $from, string $to ): bool {
+	public function claim_for_cleanup( int $id, string $from ): bool {
 		global $wpdb;
 
 		$updated = $wpdb->update(
 			Schema::sessions_table(),
-			array( 'status' => $to ),
+			array(
+				'status'   => Session::STATUS_CLEANING,
+				'ended_at' => gmdate( 'Y-m-d H:i:s' ),
+			),
 			array(
 				'id'     => $id,
 				'status' => $from,
 			),
-			array( '%s' ),
+			array( '%s', '%s' ),
 			array( '%d', '%s' )
 		);
 
@@ -129,10 +130,31 @@ class Session_Repository {
 	}
 
 	/**
+	 * Releases cleanups that died part-way (e.g. a PHP timeout) so they can
+	 * be retried.
+	 *
+	 * @param int $older_than Seconds since the cleanup was claimed; 0 releases all.
+	 * @return void
+	 */
+	public function release_stuck_cleanups( int $older_than ): void {
+		global $wpdb;
+
+		$table = Schema::sessions_table();
+		$wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table} SET status = %s WHERE status = %s AND ended_at <= %s",
+				Session::STATUS_INCOMPLETE,
+				Session::STATUS_CLEANING,
+				gmdate( 'Y-m-d H:i:s', time() - $older_than )
+			)
+		);
+	}
+
+	/**
 	 * Marks a session finished and stores its cleanup summary.
 	 *
 	 * @param int                  $id      Session ID.
-	 * @param string               $status  Session::STATUS_ENDED or Session::STATUS_EXPIRED.
+	 * @param string               $status  The status cleanup left the session in.
 	 * @param array<string, mixed> $summary Cleanup result.
 	 * @return void
 	 */
@@ -153,16 +175,30 @@ class Session_Repository {
 	}
 
 	/**
-	 * Counts a request as running inside a session.
+	 * Atomically claims a place for a request inside an open session.
+	 *
+	 * The check (active and unexpired) and the increment are one statement,
+	 * so it is ordered against cleanup's own active → cleaning update on the
+	 * same row: either this claim lands first and cleanup waits for the
+	 * request, or cleanup lands first and the claim fails.
 	 *
 	 * @param int $id Session ID.
-	 * @return void
+	 * @return bool True if the request joined the session.
 	 */
-	public function begin_request( int $id ): void {
+	public function begin_request( int $id ): bool {
 		global $wpdb;
 
-		$table = Schema::sessions_table();
-		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET active_requests = active_requests + 1 WHERE id = %d", $id ) );
+		$table   = Schema::sessions_table();
+		$claimed = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table} SET active_requests = active_requests + 1 WHERE id = %d AND status = %s AND expires_at > %s",
+				$id,
+				Session::STATUS_ACTIVE,
+				gmdate( 'Y-m-d H:i:s' )
+			)
+		);
+
+		return 1 === $claimed;
 	}
 
 	/**
@@ -207,19 +243,21 @@ class Session_Repository {
 	}
 
 	/**
-	 * IDs of active sessions past their expiry time.
+	 * IDs of sessions the expiry job should clean: active sessions past their
+	 * expiry time, and sessions whose last cleanup left data behind.
 	 *
 	 * @return int[]
 	 */
-	public function expired_ids(): array {
+	public function cleanup_due_ids(): array {
 		global $wpdb;
 
 		$table = Schema::sessions_table();
 		$ids   = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT id FROM {$table} WHERE status = %s AND expires_at < %s",
+				"SELECT id FROM {$table} WHERE ( status = %s AND expires_at < %s ) OR status = %s",
 				Session::STATUS_ACTIVE,
-				gmdate( 'Y-m-d H:i:s' )
+				gmdate( 'Y-m-d H:i:s' ),
+				Session::STATUS_INCOMPLETE
 			)
 		);
 
@@ -227,7 +265,7 @@ class Session_Repository {
 	}
 
 	/**
-	 * IDs of all sessions still holding test data (active or mid-cleanup).
+	 * IDs of all sessions that may still hold test data.
 	 *
 	 * @return int[]
 	 */
@@ -237,13 +275,28 @@ class Session_Repository {
 		$table = Schema::sessions_table();
 		$ids   = $wpdb->get_col(
 			$wpdb->prepare(
-				"SELECT id FROM {$table} WHERE status IN ( %s, %s )",
+				"SELECT id FROM {$table} WHERE status IN ( %s, %s, %s, %s )",
 				Session::STATUS_ACTIVE,
-				Session::STATUS_CLEANING
+				Session::STATUS_CLEANING,
+				Session::STATUS_INCOMPLETE,
+				Session::STATUS_FAILED
 			)
 		);
 
 		return array_map( 'intval', $ids );
+	}
+
+	/**
+	 * Number of object records a session still holds.
+	 *
+	 * @param int $session_id Session ID.
+	 * @return int
+	 */
+	public function count_objects( int $session_id ): int {
+		global $wpdb;
+
+		$table = Schema::objects_table();
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE session_id = %d", $session_id ) );
 	}
 
 	/**

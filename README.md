@@ -71,7 +71,7 @@ add_filter( 'presstest_companion_gateway_mode', function ( string $mode, WC_Paym
 }, 10, 2 );
 ```
 
-- **Cleanup** runs when the run ends, waits for any requests still in flight, and is backed up by an hourly job that clears interrupted runs. **Settings > Test sessions** lists recent runs and can remove all remaining test data immediately; deactivating the plugin does the same.
+- **Cleanup** runs when the run ends and waits for any requests still in flight. Runs that were interrupted are cleaned up by an hourly scheduled task once their session expires (two hours after the run started, adjustable with the `presstest_companion_session_ttl` filter), and failed cleanups are retried the same way. WP-Cron only runs when the site gets traffic, so on a quiet site this can take longer — **Settings > Test sessions** lists recent runs and can remove all remaining test data immediately; deactivating the plugin does the same.
 
 ### What is cleaned up
 

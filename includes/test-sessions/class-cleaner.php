@@ -38,6 +38,13 @@ class Cleaner {
 	const DEFAULT_WAIT = 30;
 
 	/**
+	 * Cleanup attempts before a session that keeps leaving data behind stops
+	 * being retried hourly (roughly a day). Filterable via
+	 * presstest_companion_cleanup_max_attempts.
+	 */
+	const MAX_ATTEMPTS = 24;
+
+	/**
 	 * Session data access.
 	 *
 	 * @var Session_Repository
@@ -63,15 +70,25 @@ class Cleaner {
 	}
 
 	/**
-	 * Cleans up a session and marks it finished.
+	 * Cleans up a session (active, or left incomplete/failed by an earlier
+	 * attempt).
+	 *
+	 * The session is only marked finished once no records remain. Anything
+	 * that couldn't be removed keeps its record and leaves the session
+	 * incomplete, so the expiry job retries it — or failed, after
+	 * MAX_ATTEMPTS, so only the admin purge retries it.
 	 *
 	 * @param Session $session      Session to clean.
-	 * @param string  $final_status Session::STATUS_ENDED or Session::STATUS_EXPIRED.
-	 * @return array<string, mixed>|null Cleanup summary, or null if another
-	 *                                   process is already cleaning this session.
+	 * @param string  $final_status Status once fully cleaned: Session::STATUS_ENDED or Session::STATUS_EXPIRED.
+	 * @return array<string, mixed>|null Cleanup summary, or null if the
+	 *                                   session isn't cleanable or another
+	 *                                   process is already cleaning it.
 	 */
 	public function clean( Session $session, string $final_status ): ?array {
-		if ( false === $this->repository->transition( $session->get_id(), Session::STATUS_ACTIVE, Session::STATUS_CLEANING ) ) {
+		if (
+			! in_array( $session->get_status(), Session::CLEANABLE_STATUSES, true )
+			|| false === $this->repository->claim_for_cleanup( $session->get_id(), $session->get_status() )
+		) {
 			return null;
 		}
 
@@ -85,30 +102,52 @@ class Cleaner {
 		Session_Context::release();
 		$this->wait_for_requests( $session->get_id() );
 
-		$summary = Session_Context::run_as( $session, fn(): array => $this->purge( $session ) );
+		$result   = Session_Context::run_as( $session, fn(): array => $this->purge( $session ) );
+		$previous = $this->repository->summary( $session->get_id() ) ?? array();
+		$attempts = (int) ( $previous['attempts'] ?? 0 ) + 1;
 
-		$summary['emails_captured'] = $this->repository->delete_emails( $session->get_id() );
+		// Totals accumulate across attempts; failures describe the latest one.
+		$summary = array(
+			'deleted'         => self::add_counts( (array) ( $previous['deleted'] ?? array() ), $result['deleted'] ),
+			'kept'            => self::add_counts( (array) ( $previous['kept'] ?? array() ), $result['kept'] ),
+			'failed'          => $result['failed'],
+			'unhandled'       => $result['unhandled'],
+			'outstanding'     => $this->repository->count_objects( $session->get_id() ),
+			'attempts'        => $attempts,
+			'emails_captured' => (int) ( $previous['emails_captured'] ?? 0 ) + $this->repository->delete_emails( $session->get_id() ),
+		);
 
-		$this->repository->finish( $session->get_id(), $final_status, $summary );
+		$max_attempts = (int) apply_filters( 'presstest_companion_cleanup_max_attempts', self::MAX_ATTEMPTS );
+
+		if ( 0 === $summary['outstanding'] ) {
+			$status = $final_status;
+		} else {
+			$status = $attempts >= $max_attempts ? Session::STATUS_FAILED : Session::STATUS_INCOMPLETE;
+		}
+
+		$this->repository->finish( $session->get_id(), $status, $summary );
 
 		return $summary;
 	}
 
 	/**
-	 * Cleans up every unfinished session now, including any left mid-cleanup
-	 * by a crash or timeout. Used by the admin purge and on deactivation.
+	 * Cleans up every session that may still hold test data — active,
+	 * incomplete, failed, or stuck mid-cleanup. Used by the admin purge and
+	 * on deactivation.
 	 *
-	 * @return int Number of sessions cleaned.
+	 * @return int Number of sessions now fully cleaned.
 	 */
 	public function clean_unfinished(): int {
 		$cleaned = 0;
 
-		foreach ( $this->repository->unfinished_ids() as $session_id ) {
-			// Put a session stuck in "cleaning" back to active so it can be claimed.
-			$this->repository->transition( $session_id, Session::STATUS_CLEANING, Session::STATUS_ACTIVE );
-			$session = $this->repository->find( $session_id );
+		// An explicit purge doesn't wait for the hourly stuck-cleanup check.
+		$this->repository->release_stuck_cleanups( 0 );
 
-			if ( null !== $session && null !== $this->clean( $session, Session::STATUS_ENDED ) ) {
+		foreach ( $this->repository->unfinished_ids() as $session_id ) {
+			$session = $this->repository->find( $session_id );
+			$summary = null !== $session ? $this->clean( $session, Session::STATUS_ENDED ) : null;
+
+			if ( null !== $summary && 0 === $summary['outstanding'] ) {
 				++$cleaned;
 			}
 		}
@@ -118,6 +157,11 @@ class Cleaner {
 
 	/**
 	 * Deletes the session's objects in handler priority order.
+	 *
+	 * Records are only forgotten once their object is removed (or
+	 * deliberately kept). Failed and unhandled objects keep their records, so
+	 * a later attempt can retry them — e.g. after a transient database error,
+	 * or once a deactivated integration is active again.
 	 *
 	 * @param Session $session Session being cleaned.
 	 * @return array{deleted: array<string, int>, kept: array<string, int>, failed: string[], unhandled: array<string, int>}
@@ -153,7 +197,6 @@ class Cleaner {
 
 				if ( ! isset( $handlers[ $type ] ) ) {
 					$unhandled[ $type ] = ( $unhandled[ $type ] ?? 0 ) + 1;
-					$done[]             = $record['id'];
 					continue;
 				}
 
@@ -167,15 +210,13 @@ class Cleaner {
 
 				if ( self::KEPT === $result ) {
 					$kept[ $type ] = ( $kept[ $type ] ?? 0 ) + 1;
+					$done[]        = $record['id'];
 				} elseif ( true === $result ) {
 					$deleted[ $type ] = ( $deleted[ $type ] ?? 0 ) + 1;
+					$done[]           = $record['id'];
 				} else {
 					$failed[] = sprintf( '%s #%d: %s', $type, $record['object_id'], $error );
 				}
-
-				// Failed objects are forgotten too: retrying won't help, and the
-				// summary records them for the admin to follow up.
-				$done[] = $record['id'];
 			}
 
 			$this->repository->forget_objects( $done );
@@ -204,6 +245,21 @@ class Cleaner {
 		while ( 0 < $this->repository->active_requests( $session_id ) && microtime( true ) < $deadline ) {
 			usleep( 250000 );
 		}
+	}
+
+	/**
+	 * Adds per-type counts together.
+	 *
+	 * @param array<string, int> $totals Running totals.
+	 * @param array<string, int> $counts Counts to add.
+	 * @return array<string, int>
+	 */
+	private static function add_counts( array $totals, array $counts ): array {
+		foreach ( $counts as $type => $count ) {
+			$totals[ $type ] = (int) ( $totals[ $type ] ?? 0 ) + (int) $count;
+		}
+
+		return $totals;
 	}
 
 	/**

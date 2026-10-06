@@ -87,8 +87,9 @@ class Bootstrap {
 	}
 
 	/**
-	 * Cleans up sessions past their expiry time, e.g. when the test runner
-	 * crashed before ending them, and prunes old session history.
+	 * Cleans up sessions the runner never ended (past their expiry time),
+	 * retries sessions whose last cleanup left data behind, releases cleanups
+	 * that died part-way, and prunes old session history.
 	 *
 	 * @return void
 	 */
@@ -96,11 +97,13 @@ class Bootstrap {
 		$repository = new Session_Repository();
 		$cleaner    = new Cleaner( $repository, self::registry() );
 
-		foreach ( $repository->expired_ids() as $session_id ) {
+		$repository->release_stuck_cleanups( HOUR_IN_SECONDS );
+
+		foreach ( $repository->cleanup_due_ids() as $session_id ) {
 			$session = $repository->find( $session_id );
 
 			if ( null !== $session ) {
-				$cleaner->clean( $session, Session::STATUS_EXPIRED );
+				$cleaner->clean( $session, Session::STATUS_ACTIVE === $session->get_status() ? Session::STATUS_EXPIRED : Session::STATUS_ENDED );
 			}
 		}
 
