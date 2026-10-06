@@ -9,8 +9,9 @@
  *
  * An email belongs to a session when either:
  *   - it is sent during a session request; or
- *   - any recipient is a session test user (presstest-<id>-…@presstest.invalid),
- *     which catches emails sent later from cron or background queues.
+ *   - any recipient — To, Cc or Bcc — is a session test user
+ *     (presstest-<id>-…@presstest.invalid), which catches emails sent later
+ *     from cron or background queues.
  *
  * Blocking is layered: pre_wp_mail short-circuits wp_mail() as "sent"; if a
  * plugin has replaced wp_mail() and skipped that filter, phpmailer_init strips
@@ -91,7 +92,10 @@ class Email_Capture {
 			return $atts;
 		}
 
-		$recipients = self::normalise_list( $atts['to'] ?? array() );
+		// wp_mail() also sends to Cc and Bcc header recipients, so a test
+		// user copied into an otherwise real email still identifies it.
+		$headers    = self::normalise_list( $atts['headers'] ?? array(), "\n" );
+		$recipients = array_merge( self::normalise_list( $atts['to'] ?? array() ), self::copied_recipients( $headers ) );
 		$session    = Session_Context::current() ?? $this->session_for_recipients( $recipients );
 
 		if ( null === $session ) {
@@ -104,7 +108,7 @@ class Email_Capture {
 				'recipients'  => $recipients,
 				'subject'     => (string) ( $atts['subject'] ?? '' ),
 				'message'     => (string) ( $atts['message'] ?? '' ),
-				'headers'     => self::normalise_list( $atts['headers'] ?? array(), "\n" ),
+				'headers'     => $headers,
 				'attachments' => array_map( 'wp_basename', self::normalise_list( $atts['attachments'] ?? array(), "\n" ) ),
 			)
 		);
@@ -165,6 +169,26 @@ class Email_Capture {
 		}
 
 		return null;
+	}
+
+	/**
+	 * Recipients copied in via Cc and Bcc headers, parsed as wp_mail() does:
+	 * header names are case-insensitive, and each header may list several
+	 * comma-separated addresses.
+	 *
+	 * @param string[] $headers Header lines.
+	 * @return string[]
+	 */
+	private static function copied_recipients( array $headers ): array {
+		$recipients = array();
+
+		foreach ( $headers as $header ) {
+			if ( 1 === preg_match( '/^\s*b?cc\s*:(.*)$/i', $header, $matches ) ) {
+				$recipients = array_merge( $recipients, self::normalise_list( $matches[1] ) );
+			}
+		}
+
+		return $recipients;
 	}
 
 	/**

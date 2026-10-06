@@ -63,7 +63,8 @@ interface Integration {
 	 * they depend on (users). The callback receives ( int $object_id,
 	 * ?array $data, Session $session ) and returns true once the object is
 	 * gone (including when it was already deleted), Cleaner::KEPT when it was
-	 * deliberately left in place, or false on failure.
+	 * deliberately left in place, Cleaner::DEFERRED when it must wait for
+	 * another handler (retried later), or false on failure.
 	 *
 	 * @return array<string, array{priority: int, callback: callable}>
 	 */

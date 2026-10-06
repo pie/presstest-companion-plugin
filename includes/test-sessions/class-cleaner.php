@@ -32,6 +32,13 @@ class Cleaner {
 	const KEPT = 'kept';
 
 	/**
+	 * Returned by a cleanup handler that must wait for another handler first,
+	 * e.g. an order post waiting for the order's own cleanup. The record is
+	 * kept for the next attempt, and it isn't reported as a failure.
+	 */
+	const DEFERRED = 'deferred';
+
+	/**
 	 * Default seconds to wait for in-flight session requests before cleaning.
 	 * Filterable via presstest_companion_cleanup_wait.
 	 */
@@ -43,6 +50,14 @@ class Cleaner {
 	 * presstest_companion_cleanup_max_attempts.
 	 */
 	const MAX_ATTEMPTS = 24;
+
+	/**
+	 * Seconds after which a cleanup claim is treated as abandoned (e.g. the
+	 * request hit a PHP timeout) and released for retry. Well beyond the
+	 * 300-second limit a cleanup runs under, so a live cleanup is never
+	 * released while it is still working.
+	 */
+	const STALE_CLAIM_AGE = HOUR_IN_SECONDS;
 
 	/**
 	 * Session data access.
@@ -99,8 +114,14 @@ class Cleaner {
 
 		// The session is closed to new requests now; let any still running
 		// finish, or they could recreate data after it has been deleted.
+		// Counts left by killed requests are cleared first so they never
+		// hold cleanup up.
 		Session_Context::release();
-		$this->wait_for_requests( $session->get_id() );
+		$this->repository->reset_leaked_requests( $session->get_id(), self::STALE_CLAIM_AGE );
+
+		if ( false === $this->wait_for_requests( $session->get_id() ) ) {
+			return $this->defer_for_requests( $session );
+		}
 
 		$result   = Session_Context::run_as( $session, fn(): array => $this->purge( $session ) );
 		$previous = $this->repository->summary( $session->get_id() ) ?? array();
@@ -110,6 +131,7 @@ class Cleaner {
 		$summary = array(
 			'deleted'         => self::add_counts( (array) ( $previous['deleted'] ?? array() ), $result['deleted'] ),
 			'kept'            => self::add_counts( (array) ( $previous['kept'] ?? array() ), $result['kept'] ),
+			'deferred'        => $result['deferred'],
 			'failed'          => $result['failed'],
 			'unhandled'       => $result['unhandled'],
 			'outstanding'     => $this->repository->count_objects( $session->get_id() ),
@@ -132,16 +154,18 @@ class Cleaner {
 
 	/**
 	 * Cleans up every session that may still hold test data — active,
-	 * incomplete, failed, or stuck mid-cleanup. Used by the admin purge and
-	 * on deactivation.
+	 * incomplete, failed, or abandoned mid-cleanup. Used by the admin purge
+	 * and on deactivation.
 	 *
 	 * @return int Number of sessions now fully cleaned.
 	 */
 	public function clean_unfinished(): int {
 		$cleaned = 0;
 
-		// An explicit purge doesn't wait for the hourly stuck-cleanup check.
-		$this->repository->release_stuck_cleanups( 0 );
+		// Only abandoned claims are released. A cleanup still running (e.g. the
+		// runner ending its session right now) is left to finish, so two
+		// cleanups never restore stock or coupons for the same session at once.
+		$this->repository->release_stuck_cleanups( self::STALE_CLAIM_AGE );
 
 		foreach ( $this->repository->unfinished_ids() as $session_id ) {
 			$session = $this->repository->find( $session_id );
@@ -164,12 +188,13 @@ class Cleaner {
 	 * or once a deactivated integration is active again.
 	 *
 	 * @param Session $session Session being cleaned.
-	 * @return array{deleted: array<string, int>, kept: array<string, int>, failed: string[], unhandled: array<string, int>}
+	 * @return array{deleted: array<string, int>, kept: array<string, int>, deferred: array<string, int>, failed: string[], unhandled: array<string, int>}
 	 */
 	private function purge( Session $session ): array {
 		$handlers  = $this->registry->cleanup_handlers();
 		$deleted   = array();
 		$kept      = array();
+		$deferred  = array();
 		$failed    = array();
 		$unhandled = array();
 		$attempted = array();
@@ -208,7 +233,9 @@ class Cleaner {
 					$error  = $e->getMessage();
 				}
 
-				if ( self::KEPT === $result ) {
+				if ( self::DEFERRED === $result ) {
+					$deferred[ $type ] = ( $deferred[ $type ] ?? 0 ) + 1;
+				} elseif ( self::KEPT === $result ) {
 					$kept[ $type ] = ( $kept[ $type ] ?? 0 ) + 1;
 					$done[]        = $record['id'];
 				} elseif ( true === $result ) {
@@ -225,6 +252,7 @@ class Cleaner {
 		return array(
 			'deleted'   => $deleted,
 			'kept'      => $kept,
+			'deferred'  => $deferred,
 			'failed'    => $failed,
 			'unhandled' => $unhandled,
 		);
@@ -233,18 +261,42 @@ class Cleaner {
 	/**
 	 * Waits until no requests are running inside the session, up to a limit.
 	 *
-	 * A request killed without running shutdown (e.g. a PHP-FPM timeout)
-	 * never decrements its count, hence the limit rather than waiting forever.
-	 *
 	 * @param int $session_id Session ID.
-	 * @return void
+	 * @return bool True if every request finished; false if some are still running.
 	 */
-	private function wait_for_requests( int $session_id ): void {
+	private function wait_for_requests( int $session_id ): bool {
 		$deadline = microtime( true ) + (int) apply_filters( 'presstest_companion_cleanup_wait', self::DEFAULT_WAIT );
 
 		while ( 0 < $this->repository->active_requests( $session_id ) && microtime( true ) < $deadline ) {
 			usleep( 250000 );
 		}
+
+		return 0 === $this->repository->active_requests( $session_id );
+	}
+
+	/**
+	 * Postpones cleanup while requests are still running inside the session.
+	 *
+	 * Purging now would let those requests create data after the final count.
+	 * Instead the session is left incomplete — still closed to new requests,
+	 * while the running ones keep recording into it — and the hourly job
+	 * tries again. Waiting doesn't count towards MAX_ATTEMPTS.
+	 *
+	 * @param Session $session Session being cleaned.
+	 * @return array<string, mixed> The session's summary, noting the requests still running.
+	 */
+	private function defer_for_requests( Session $session ): array {
+		$summary = array_merge(
+			$this->repository->summary( $session->get_id() ) ?? array(),
+			array(
+				'in_flight'   => $this->repository->active_requests( $session->get_id() ),
+				'outstanding' => $this->repository->count_objects( $session->get_id() ),
+			)
+		);
+
+		$this->repository->finish( $session->get_id(), Session::STATUS_INCOMPLETE, $summary );
+
+		return $summary;
 	}
 
 	/**

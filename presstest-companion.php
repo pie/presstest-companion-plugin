@@ -29,6 +29,9 @@ require_once __DIR__ . '/vendor/autoload.php';
 require_once 'definitions.php';
 require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/test-sessions/autoload.php';
 
+// Refuse test traffic for closed sessions before anything else handles it.
+TestSessions\Bootstrap::guard_request();
+
 /**
  * Runs during plugin activation.
  *

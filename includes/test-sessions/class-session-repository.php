@@ -133,7 +133,7 @@ class Session_Repository {
 	 * Releases cleanups that died part-way (e.g. a PHP timeout) so they can
 	 * be retried.
 	 *
-	 * @param int $older_than Seconds since the cleanup was claimed; 0 releases all.
+	 * @param int $older_than Seconds since the cleanup was claimed.
 	 * @return void
 	 */
 	public function release_stuck_cleanups( int $older_than ): void {
@@ -191,7 +191,8 @@ class Session_Repository {
 		$table   = Schema::sessions_table();
 		$claimed = $wpdb->query(
 			$wpdb->prepare(
-				"UPDATE {$table} SET active_requests = active_requests + 1 WHERE id = %d AND status = %s AND expires_at > %s",
+				"UPDATE {$table} SET active_requests = active_requests + 1, last_request_at = %s WHERE id = %d AND status = %s AND expires_at > %s",
+				gmdate( 'Y-m-d H:i:s' ),
 				$id,
 				Session::STATUS_ACTIVE,
 				gmdate( 'Y-m-d H:i:s' )
@@ -212,6 +213,33 @@ class Session_Repository {
 
 		$table = Schema::sessions_table();
 		$wpdb->query( $wpdb->prepare( "UPDATE {$table} SET active_requests = GREATEST( active_requests - 1, 0 ) WHERE id = %d", $id ) );
+	}
+
+	/**
+	 * Clears request counts that can no longer belong to running requests.
+	 *
+	 * A request killed outright (e.g. its worker was SIGKILLed) never runs its
+	 * shutdown function, so its count is never decremented. If no request has
+	 * joined the session for longer than any request could run, whatever is
+	 * still counted has leaked.
+	 *
+	 * @param int $id         Session ID.
+	 * @param int $older_than Seconds since the last request joined.
+	 * @return bool True if a leaked count was cleared.
+	 */
+	public function reset_leaked_requests( int $id, int $older_than ): bool {
+		global $wpdb;
+
+		$table   = Schema::sessions_table();
+		$cleared = $wpdb->query(
+			$wpdb->prepare(
+				"UPDATE {$table} SET active_requests = 0 WHERE id = %d AND active_requests > 0 AND ( last_request_at IS NULL OR last_request_at <= %s )",
+				$id,
+				gmdate( 'Y-m-d H:i:s', time() - $older_than )
+			)
+		);
+
+		return 1 === $cleared;
 	}
 
 	/**
@@ -300,10 +328,14 @@ class Session_Repository {
 	}
 
 	/**
-	 * Most recent sessions with object counts, for the admin view.
+	 * Sessions for the admin view: the most recent, plus every older session
+	 * that may still hold test data. Including the latter means a stranded
+	 * session (e.g. one whose cleanup failed weeks ago) never drops out of the
+	 * view — or out of its "test data held" count — just because newer runs
+	 * have happened since.
 	 *
-	 * @param int $limit Maximum rows to return.
-	 * @return array<int, array<string, mixed>>
+	 * @param int $limit Number of most recent sessions to include.
+	 * @return array<int, array<string, mixed>> Newest first, with object counts.
 	 */
 	public function recent( int $limit = 20 ): array {
 		global $wpdb;
@@ -311,12 +343,22 @@ class Session_Repository {
 		$sessions = Schema::sessions_table();
 		$objects  = Schema::objects_table();
 
+		$recent_ids = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$sessions} ORDER BY id DESC LIMIT %d", $limit ) ) );
+		$ids        = array_values( array_unique( array_merge( $recent_ids, $this->unfinished_ids() ) ) );
+
+		if ( array() === $ids ) {
+			return array();
+		}
+
+		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
+
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT s.id, s.status, s.label, s.created_at, s.expires_at, s.ended_at, s.summary, COUNT( o.id ) AS object_count
 				FROM {$sessions} s LEFT JOIN {$objects} o ON o.session_id = s.id
-				GROUP BY s.id ORDER BY s.id DESC LIMIT %d",
-				$limit
+				WHERE s.id IN ( {$placeholders} )
+				GROUP BY s.id ORDER BY s.id DESC",
+				$ids
 			),
 			ARRAY_A
 		);

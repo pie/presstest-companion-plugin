@@ -27,7 +27,7 @@ use PIE\PresstestCompanion\TestSessions\Tracker;
 /**
  * Tracking, cleanup, safety checks, and fixtures for WooCommerce.
  */
-class WooCommerce extends Abstract_Integration {
+class WooCommerce extends Abstract_Integration implements Owns_Post_Types {
 
 	/**
 	 * Gateways that never take payment online.
@@ -50,6 +50,21 @@ class WooCommerce extends Abstract_Integration {
 	 * @var array<int, true>
 	 */
 	private array $new_orders = array();
+
+	/**
+	 * Order post types — orders with posts-based storage, refunds, and the
+	 * placeholder posts HPOS keeps. Listed directly (not via
+	 * wc_get_order_types()) so ownership holds while WooCommerce is inactive.
+	 *
+	 * @return array<string, string>
+	 */
+	public function get_owned_post_types(): array {
+		return array(
+			'shop_order'           => 'wc_order',
+			'shop_order_refund'    => 'wc_order',
+			'shop_order_placehold' => 'wc_order',
+		);
+	}
 
 	/**
 	 * Integration slug.
@@ -332,18 +347,19 @@ class WooCommerce extends Abstract_Integration {
 	 *
 	 * @param int        $id   Hash of the session key (unused).
 	 * @param array|null $data Recorded data: array( 'key' => string ).
-	 * @return bool
+	 * @return bool False on a database error, so the session row is retried.
 	 */
 	public function delete_cart_session( int $id, ?array $data ): bool {
 		global $wpdb;
 
 		$key = (string) ( $data['key'] ?? '' );
 
-		if ( '' !== $key ) {
-			$wpdb->delete( $wpdb->prefix . 'woocommerce_sessions', array( 'session_key' => $key ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( '' === $key ) {
+			return true;
 		}
 
-		return true;
+		// False means a database error; 0 rows means the session already expired.
+		return false !== $wpdb->delete( $wpdb->prefix . 'woocommerce_sessions', array( 'session_key' => $key ), array( '%s' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 	}
 
 	/**

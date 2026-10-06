@@ -24,7 +24,7 @@ class Schema {
 	/**
 	 * Bump whenever a table definition below changes.
 	 */
-	const SCHEMA_VERSION = '2';
+	const SCHEMA_VERSION = '3';
 
 	/**
 	 * Option storing the installed schema version.
@@ -113,6 +113,7 @@ class Schema {
 			ended_at datetime DEFAULT NULL,
 			summary longtext DEFAULT NULL,
 			active_requests int(11) NOT NULL DEFAULT 0,
+			last_request_at datetime DEFAULT NULL,
 			PRIMARY KEY  (id),
 			KEY status_expires (status, expires_at)
 		) {$charset};

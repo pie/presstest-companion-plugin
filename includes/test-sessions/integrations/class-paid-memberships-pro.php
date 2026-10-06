@@ -160,8 +160,12 @@ class Paid_Memberships_Pro extends Abstract_Integration {
 	/**
 	 * Deletes a membership order and its meta.
 	 *
+	 * A database error deleting the meta fails the handler, so the order's
+	 * record is kept and the meta is retried later (the order itself being
+	 * gone already is fine on retry).
+	 *
 	 * @param int $order_id Order ID.
-	 * @return bool True once the order is gone.
+	 * @return bool True once the order and its meta are gone.
 	 */
 	public function delete_order( int $order_id ): bool {
 		global $wpdb;
@@ -173,7 +177,10 @@ class Paid_Memberships_Pro extends Abstract_Integration {
 			$order->deleteMe();
 		}
 
-		$wpdb->delete( $wpdb->pmpro_membership_ordermeta, array( 'pmpro_membership_order_id' => $order_id ), array( '%d' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		// False means a database error; 0 rows simply means there was no meta.
+		if ( false === $wpdb->delete( $wpdb->pmpro_membership_ordermeta, array( 'pmpro_membership_order_id' => $order_id ), array( '%d' ) ) ) { // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			return false;
+		}
 
 		$order = new \MemberOrder( $order_id );
 		return 0 === absint( $order->id ?? 0 );
@@ -183,22 +190,42 @@ class Paid_Memberships_Pro extends Abstract_Integration {
 	 * Removes membership history, subscriptions, and discount code uses for a
 	 * test user. PMPro keeps these after deleting a user, for reporting.
 	 *
+	 * Stops at the first database error and returns false, so the record is
+	 * kept and the rest is retried later. Subscription meta goes first, so a
+	 * retry can still find the subscriptions it belongs to.
+	 *
 	 * @param int $user_id Test user ID.
-	 * @return bool
+	 * @return bool True once all of the user's membership data is gone.
 	 */
 	public function delete_membership_data( int $user_id ): bool {
 		global $wpdb;
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery
+		$wpdb->last_error = '';
 		$subscription_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$wpdb->pmpro_subscriptions} WHERE user_id = %d", $user_id ) );
 
-		foreach ( $subscription_ids as $subscription_id ) {
-			$wpdb->delete( $wpdb->pmpro_subscriptionmeta, array( 'pmpro_subscription_id' => (int) $subscription_id ), array( '%d' ) );
+		// get_col() returns an empty array on error too; don't mistake that
+		// for "no subscriptions" and orphan their meta.
+		if ( '' !== $wpdb->last_error ) {
+			return false;
 		}
 
-		$wpdb->delete( $wpdb->pmpro_subscriptions, array( 'user_id' => $user_id ), array( '%d' ) );
-		$wpdb->delete( $wpdb->pmpro_memberships_users, array( 'user_id' => $user_id ), array( '%d' ) );
-		$wpdb->delete( $wpdb->pmpro_discount_codes_uses, array( 'user_id' => $user_id ), array( '%d' ) );
+		$deletions = array();
+
+		foreach ( $subscription_ids as $subscription_id ) {
+			$deletions[] = array( $wpdb->pmpro_subscriptionmeta, array( 'pmpro_subscription_id' => (int) $subscription_id ) );
+		}
+
+		$deletions[] = array( $wpdb->pmpro_subscriptions, array( 'user_id' => $user_id ) );
+		$deletions[] = array( $wpdb->pmpro_memberships_users, array( 'user_id' => $user_id ) );
+		$deletions[] = array( $wpdb->pmpro_discount_codes_uses, array( 'user_id' => $user_id ) );
+
+		foreach ( $deletions as $deletion ) {
+			// False means a database error; 0 rows simply means nothing to delete.
+			if ( false === $wpdb->delete( $deletion[0], $deletion[1], array( '%d' ) ) ) {
+				return false;
+			}
+		}
 		// phpcs:enable
 
 		return true;

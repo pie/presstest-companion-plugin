@@ -84,6 +84,29 @@ class Integration_Registry {
 	}
 
 	/**
+	 * The object type that owns a post type's cleanup, if any.
+	 *
+	 * Checks every registered integration, active or not: an order post must
+	 * wait for WooCommerce's cleanup even while WooCommerce is deactivated.
+	 *
+	 * @param string $post_type Post type.
+	 * @return string|null Owning object type, e.g. "wc_order".
+	 */
+	public function post_type_owner( string $post_type ): ?string {
+		foreach ( $this->integrations as $integration ) {
+			if ( $integration instanceof Owns_Post_Types ) {
+				$owned = $integration->get_owned_post_types();
+
+				if ( isset( $owned[ $post_type ] ) ) {
+					return $owned[ $post_type ];
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Fixture factories from all active integrations, keyed by fixture type.
 	 *
 	 * @return array<string, callable>

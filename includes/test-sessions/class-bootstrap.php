@@ -29,6 +29,72 @@ class Bootstrap {
 	private static ?Integration_Registry $registry = null;
 
 	/**
+	 * Refuses test traffic whose session is no longer open.
+	 *
+	 * A request carrying session credentials is test traffic. If its session
+	 * has ended, expired, or started cleaning (or the credentials are
+	 * invalid), letting it through as an ordinary visitor would bypass the
+	 * payment guards, leave whatever it creates untracked, and send real
+	 * emails — e.g. a checkout the browser submitted just as the run ended.
+	 * So it is refused before WordPress or any plugin handles it.
+	 *
+	 * Called as the plugin file loads, before other plugins' hooks run. The
+	 * runner's own session routes (authenticated by the report secret) are
+	 * let through so it can always end and clean up a session.
+	 *
+	 * @return void
+	 */
+	public static function guard_request(): void {
+		if ( false === Session_Context::has_credentials() || null !== Session_Context::current() || true === self::is_runner_request() ) {
+			return;
+		}
+
+		$message = 'This request belongs to a Presstest test session that has ended or expired, so it was blocked to avoid creating untracked test data or sending real emails.';
+
+		if ( true === self::is_json_request() ) {
+			wp_send_json(
+				array(
+					'code'    => 'presstest_session_closed',
+					'message' => $message,
+					'data'    => array( 'status' => 403 ),
+				),
+				403
+			);
+		}
+
+		wp_die( esc_html( $message ), 'Presstest', array( 'response' => 403 ) );
+	}
+
+	/**
+	 * Whether this is the runner calling a session route with its report
+	 * secret. The secret itself is checked by the route's permission callback.
+	 *
+	 * @return bool
+	 */
+	private static function is_runner_request(): bool {
+		if ( ! isset( $_SERVER['HTTP_X_PRESSTEST_TOKEN'] ) ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only matched against a fixed pattern.
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? rawurldecode( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
+
+		return 1 === preg_match( '#presstest-companion/v1/sessions(/|$|\?|&)#', $uri );
+	}
+
+	/**
+	 * Whether the client expects a JSON response (REST API, AJAX, fetch).
+	 *
+	 * @return bool
+	 */
+	private static function is_json_request(): bool {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- only matched against fixed strings.
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+
+		return wp_is_json_request() || false !== strpos( $uri, '/wp-json/' ) || false !== strpos( $uri, 'rest_route=' ) || wp_doing_ajax();
+	}
+
+	/**
 	 * Hooks the session system in. Called on plugins_loaded.
 	 *
 	 * @return void
@@ -97,7 +163,7 @@ class Bootstrap {
 		$repository = new Session_Repository();
 		$cleaner    = new Cleaner( $repository, self::registry() );
 
-		$repository->release_stuck_cleanups( HOUR_IN_SECONDS );
+		$repository->release_stuck_cleanups( Cleaner::STALE_CLAIM_AGE );
 
 		foreach ( $repository->cleanup_due_ids() as $session_id ) {
 			$session = $repository->find( $session_id );

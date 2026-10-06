@@ -13,9 +13,11 @@
 
 namespace PIE\PresstestCompanion\TestSessions\Integrations;
 
+use PIE\PresstestCompanion\TestSessions\Bootstrap;
 use PIE\PresstestCompanion\TestSessions\Cleaner;
 use PIE\PresstestCompanion\TestSessions\Email_Capture;
 use PIE\PresstestCompanion\TestSessions\Session;
+use PIE\PresstestCompanion\TestSessions\Session_Repository;
 use PIE\PresstestCompanion\TestSessions\Test_Data_Settings;
 use PIE\PresstestCompanion\TestSessions\Tracker;
 
@@ -59,6 +61,8 @@ class WordPress extends Abstract_Integration {
 	public function register_hooks(): void {
 		add_action( 'user_register', array( $this, 'track_user' ) );
 		add_action( 'wp_insert_post', array( $this, 'track_post' ), 10, 3 );
+		// New attachments return from wp_insert_post() before its action fires.
+		add_action( 'add_attachment', array( $this, 'track_attachment' ) );
 		add_action( 'wp_insert_comment', array( $this, 'track_comment' ) );
 		add_action( 'created_term', array( $this, 'track_term' ), 10, 3 );
 	}
@@ -74,7 +78,8 @@ class WordPress extends Abstract_Integration {
 	}
 
 	/**
-	 * Records a new post of any type. Updates and revisions are skipped:
+	 * Records a new post of any type except attachments, which never reach
+	 * this action (see track_attachment()). Updates and revisions are skipped:
 	 * revisions are removed with their parent post.
 	 *
 	 * @param int      $post_id Post ID.
@@ -87,6 +92,17 @@ class WordPress extends Abstract_Integration {
 			return;
 		}
 
+		Tracker::record( 'post', $post_id );
+	}
+
+	/**
+	 * Records a new attachment (uploads through the media library, REST API,
+	 * or media_handle_sideload()). Cleanup deletes its files from disk too.
+	 *
+	 * @param int $post_id Attachment ID.
+	 * @return void
+	 */
+	public function track_attachment( int $post_id ): void {
 		Tracker::record( 'post', $post_id );
 	}
 
@@ -157,14 +173,27 @@ class WordPress extends Abstract_Integration {
 	/**
 	 * Permanently deletes a post, including attachment files from disk.
 	 *
-	 * @param int $post_id Post ID.
-	 * @return bool True once the post is gone.
+	 * Posts another integration owns (e.g. WooCommerce orders stored as
+	 * posts) are left for that integration while the session still holds its
+	 * record: deleting them here would skip its cleanup (restoring stock and
+	 * coupon usage) and lose the data a retry needs.
+	 *
+	 * @param int        $post_id Post ID.
+	 * @param array|null $data    Recorded data (unused).
+	 * @param Session    $session Session being cleaned.
+	 * @return bool|string True once the post is gone, Cleaner::DEFERRED while its owner's cleanup is pending.
 	 */
-	public function delete_post( int $post_id ): bool {
+	public function delete_post( int $post_id, ?array $data, Session $session ) {
 		$post = get_post( $post_id );
 
 		if ( null === $post ) {
 			return true;
+		}
+
+		$owner = Bootstrap::registry()->post_type_owner( $post->post_type );
+
+		if ( null !== $owner && true === ( new Session_Repository() )->has_object( $session->get_id(), $owner, $post_id ) ) {
+			return Cleaner::DEFERRED;
 		}
 
 		$result = 'attachment' === $post->post_type ? wp_delete_attachment( $post_id, true ) : wp_delete_post( $post_id, true );

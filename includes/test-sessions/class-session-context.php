@@ -115,6 +115,18 @@ class Session_Context {
 	}
 
 	/**
+	 * Whether the request presents session credentials at all, valid or not.
+	 *
+	 * Only test runs set the header or cookie, so their presence marks the
+	 * request as test traffic even when the credentials are rejected.
+	 *
+	 * @return bool
+	 */
+	public static function has_credentials(): bool {
+		return isset( $_SERVER[ self::HEADER ] ) || isset( $_COOKIE[ self::COOKIE ] );
+	}
+
+	/**
 	 * Parses "<id>.<token>" credentials from the header or cookie.
 	 *
 	 * @return array{id: int, token: string}|null Null if absent or malformed.

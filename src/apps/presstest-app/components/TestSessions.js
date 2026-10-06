@@ -46,6 +46,7 @@ const describeSummary = summary => {
 	const deleted   = Object.entries( summary.deleted ?? {} ).map( ( [ type, count ] ) => `${count} ${type}` );
 	const kept      = totalCount( summary.kept );
 	const unhandled = totalCount( summary.unhandled );
+	const deferred  = totalCount( summary.deferred );
 	const failed    = ( summary.failed ?? [] ).length;
 	const pending   = summary.outstanding ?? 0;
 
@@ -59,8 +60,16 @@ const describeSummary = summary => {
 		parts.push( `${unhandled} with no cleanup handler (${Object.keys( summary.unhandled ).join( ', ' )})` );
 	}
 
+	if ( 0 < deferred ) {
+		parts.push( `${deferred} waiting for their own cleanup (${Object.keys( summary.deferred ).join( ', ' )})` );
+	}
+
 	if ( 0 < failed ) {
 		parts.push( `${failed} failed` );
+	}
+
+	if ( 0 < ( summary.in_flight ?? 0 ) ) {
+		parts.push( `waiting for ${summary.in_flight} request(s) still running` );
 	}
 
 	if ( 0 < pending ) {
@@ -77,21 +86,31 @@ const describeSummary = summary => {
  * @returns {JSX.Element}
  */
 function TestSessions() {
-	const [sessions, setSessions] = useState( [] );
-	const [loading, setLoading]   = useState( true );
-	const [purging, setPurging]   = useState( false );
-	const [message, setMessage]   = useState( '' );
+	const [sessions, setSessions]   = useState( [] );
+	const [loaded, setLoaded]       = useState( false );
+	const [loading, setLoading]     = useState( true );
+	const [loadError, setLoadError] = useState( '' );
+	const [purging, setPurging]     = useState( false );
+	const [message, setMessage]     = useState( '' );
 
 	/**
-	 * Loads recent sessions from the REST API.
+	 * Loads recent sessions from the REST API. On failure the last loaded
+	 * list (if any) is kept and the error recorded, so a failed request is
+	 * never shown as "no test data".
 	 */
 	const load = async () => {
+		setLoading( true );
+
 		try {
 			const response = await restClient().get( 'sessions' );
 			setSessions( response.data );
+			setLoaded( true );
+			setLoadError( '' );
 		} catch ( error ) {
+			setLoadError( error.response?.data?.message ?? error.message );
 			console.error( error );
 		}
+
 		setLoading( false );
 	};
 
@@ -123,19 +142,33 @@ function TestSessions() {
 	return (
 		<div className='test-sessions'>
 			<h3>Test sessions</h3>
-			{ loading ? (
+			{ loading && false === loaded ? (
 				<p>Loading&hellip;</p>
 			) : (
 				<>
-					<p>
-						{ 0 === unfinished.length
-							? 'No test data is currently held on this site.'
-							: `${unfinished.length} session(s) currently hold test data. It is removed automatically when each run finishes. If a run was interrupted, or cleanup needs retrying, it is removed once the session has expired, the next time WordPress runs its scheduled tasks — use the button to remove it now.` }
-					</p>
+					{ '' !== loadError && (
+						<div className='field-description field-description--error'>
+							<p>
+								{ loaded
+									? `Test sessions couldn't be refreshed (${loadError}), so this list may be out of date.`
+									: `Test sessions couldn't be loaded (${loadError}). This doesn't mean no test data is held on this site.` }
+							</p>
+							<button type='button' className='button' disabled={loading} onClick={load}>
+								{ loading ? 'Retrying…' : 'Retry' }
+							</button>
+						</div>
+					) }
+					{ loaded && (
+						<p>
+							{ 0 === unfinished.length
+								? 'No test data is currently held on this site.'
+								: `${unfinished.length} session(s) currently hold test data. It is removed automatically when each run finishes. If a run was interrupted, or cleanup needs retrying, it is removed once the session has expired, the next time WordPress runs its scheduled tasks — use the button to remove it now.` }
+						</p>
+					) }
 					<button
 						type='button'
 						className='button'
-						disabled={purging || 0 === unfinished.length}
+						disabled={purging || ( loaded && 0 === unfinished.length )}
 						onClick={purge}
 					>
 						{ purging ? 'Removing…' : 'Remove all test data now' }

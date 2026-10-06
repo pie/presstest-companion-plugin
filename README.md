@@ -125,4 +125,6 @@ add_filter( 'presstest_companion_integrations', function ( array $integrations )
 } );
 ```
 
+If the plugin stores its objects as posts (as WooCommerce does with posts-based order storage), also implement `Owns_Post_Types` and map those post types to your object type. The generic post cleanup then leaves them for your handler, even while your plugin is inactive, instead of deleting them before your cleanup has run.
+
 See `class-woocommerce.php` and `class-paid-memberships-pro.php` for complete examples, including payment safety checks.
