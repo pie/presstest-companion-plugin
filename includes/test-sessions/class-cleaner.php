@@ -100,6 +100,8 @@ class Cleaner {
 	 *                                   process is already cleaning it.
 	 */
 	public function clean( Session $session, string $final_status ): ?array {
+		// Atomically claim the session (status → cleaning). If it isn't in a
+		// cleanable state, or another request has just claimed it, leave it.
 		if (
 			! in_array( $session->get_status(), Session::CLEANABLE_STATUSES, true )
 			|| false === $this->repository->claim_for_cleanup( $session->get_id(), $session->get_status() )
@@ -115,14 +117,18 @@ class Cleaner {
 		// The session is closed to new requests now; let any still running
 		// finish, or they could recreate data after it has been deleted.
 		// Counts left by killed requests are cleared first so they never
-		// hold cleanup up.
+		// delay cleanup.
 		Session_Context::release();
 		$this->repository->reset_leaked_requests( $session->get_id(), self::STALE_CLAIM_AGE );
 
+		// Requests still running after the wait: don't purge at all; leave the
+		// session incomplete for the hourly job to retry.
 		if ( false === $this->wait_for_requests( $session->get_id() ) ) {
 			return $this->defer_for_requests( $session );
 		}
 
+		// Purge inside the session, so emails and data created while deleting
+		// are captured and recorded too (see the class docblock).
 		$result   = Session_Context::run_as( $session, fn(): array => $this->purge( $session ) );
 		$previous = $this->repository->summary( $session->get_id() ) ?? array();
 		$attempts = (int) ( $previous['attempts'] ?? 0 ) + 1;
@@ -136,17 +142,22 @@ class Cleaner {
 			'unhandled'       => $result['unhandled'],
 			'outstanding'     => $this->repository->count_objects( $session->get_id() ),
 			'attempts'        => $attempts,
+			// Captured emails are deleted each attempt; only the count is kept.
 			'emails_captured' => (int) ( $previous['emails_captured'] ?? 0 ) + $this->repository->delete_emails( $session->get_id() ),
 		);
 
 		$max_attempts = (int) apply_filters( 'presstest_companion_cleanup_max_attempts', self::MAX_ATTEMPTS );
 
+		// Finished only when nothing is outstanding. Otherwise retry later
+		// (incomplete), or stop retrying hourly once the limit is reached
+		// (failed — the admin purge can still retry it).
 		if ( 0 === $summary['outstanding'] ) {
 			$status = $final_status;
 		} else {
 			$status = $attempts >= $max_attempts ? Session::STATUS_FAILED : Session::STATUS_INCOMPLETE;
 		}
 
+		// Store the outcome; this also releases the cleanup claim.
 		$this->repository->finish( $session->get_id(), $status, $summary );
 
 		return $summary;
@@ -209,7 +220,11 @@ class Cleaner {
 		$unhandled = array();
 		$attempted = array();
 
+		// Each pass picks up records added by the previous one — deleting can
+		// itself create test data (e.g. order notes) — up to MAX_PASSES.
 		for ( $pass = 1; $pass <= self::MAX_PASSES; $pass++ ) {
+			// Only records not yet tried this attempt; anything left over is
+			// retried on the session's next cleanup attempt instead.
 			$objects = array_filter(
 				$this->repository->objects( $session->get_id() ),
 				fn( array $record ): bool => ! isset( $attempted[ $record['id'] ] )
@@ -219,6 +234,8 @@ class Cleaner {
 				break;
 			}
 
+			// Run handlers in priority order, so dependants (orders, comments)
+			// go before what they depend on (products, users).
 			usort(
 				$objects,
 				fn( array $a, array $b ): int => self::priority( $handlers, $a['type'] ) <=> self::priority( $handlers, $b['type'] )
@@ -230,11 +247,15 @@ class Cleaner {
 				$attempted[ $record['id'] ] = true;
 				$type                       = $record['type'];
 
+				// No active integration handles this type (e.g. its plugin is
+				// deactivated): keep the record for a later attempt.
 				if ( ! isset( $handlers[ $type ] ) ) {
 					$unhandled[ $type ] = ( $unhandled[ $type ] ?? 0 ) + 1;
 					continue;
 				}
 
+				// A handler throwing is treated like it returning false, so one
+				// bad object can't stop the rest being cleaned.
 				try {
 					$result = call_user_func( $handlers[ $type ]['callback'], $record['object_id'], $record['data'], $session );
 					$error  = 'handler returned false';
@@ -243,6 +264,8 @@ class Cleaner {
 					$error  = $e->getMessage();
 				}
 
+				// Tally the outcome. Only deleted and kept objects are finished
+				// with; deferred and failed ones keep their records for a retry.
 				if ( self::DEFERRED === $result ) {
 					$deferred[ $type ] = ( $deferred[ $type ] ?? 0 ) + 1;
 				} elseif ( self::KEPT === $result ) {
@@ -256,6 +279,7 @@ class Cleaner {
 				}
 			}
 
+			// Remove the records of finished objects only.
 			$this->repository->forget_objects( $done );
 		}
 

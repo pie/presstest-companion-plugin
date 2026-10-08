@@ -282,6 +282,7 @@ class WooCommerce extends Abstract_Integration implements Owns_Post_Types, Provi
 	 * @return string One of: test, offline, live, unknown.
 	 */
 	private function detect_gateway_mode( \WC_Payment_Gateway $gateway ): string {
+		// Cheque, bank transfer and cash on delivery never take payment online.
 		if ( in_array( $gateway->id, self::OFFLINE_GATEWAYS, true ) ) {
 			return 'offline';
 		}
@@ -293,16 +294,22 @@ class WooCommerce extends Abstract_Integration implements Owns_Post_Types, Provi
 
 		$settings = is_array( $gateway->settings ) ? $gateway->settings : array();
 
+		// A test-mode switch (e.g. Stripe's "testmode"): on means test, any
+		// other value means live. Gateways have one such switch, so the first
+		// found decides.
 		foreach ( self::TEST_MODE_SETTINGS as $key ) {
 			if ( isset( $settings[ $key ] ) ) {
 				return in_array( $settings[ $key ], array( 'yes', '1', 1, true ), true ) ? 'test' : 'live';
 			}
 		}
 
+		// Otherwise an environment setting (e.g. "sandbox" or "production").
 		if ( isset( $settings['environment'] ) && is_string( $settings['environment'] ) ) {
 			return in_array( strtolower( $settings['environment'] ), self::TEST_ENVIRONMENTS, true ) ? 'test' : 'live';
 		}
 
+		// Nothing recognisable: treated as unsafe until the site confirms it
+		// with the presstest_companion_gateway_mode filter.
 		return 'unknown';
 	}
 
@@ -336,21 +343,27 @@ class WooCommerce extends Abstract_Integration implements Owns_Post_Types, Provi
 	public function delete_order( int $order_id ): bool {
 		$order = wc_get_order( $order_id );
 
+		// Already gone (e.g. deleted with its parent order).
 		if ( false === $order ) {
 			return true;
 		}
 
 		$guest_email = '';
 
+		// Refunds are recorded too, but have no stock, coupons or customer of
+		// their own, so only a real order goes through these steps.
 		if ( $order instanceof \WC_Order ) {
+			// Refunds first, so none is left pointing at a deleted order.
 			foreach ( $order->get_refunds() as $refund ) {
 				$refund->delete( true );
 			}
 
+			// Reverse the order's effects while its data still exists.
 			$this->restore_stock( $order );
 			$this->restore_coupon_usage( $order );
 			wc_release_stock_for_order( $order );
 
+			// Note a guest's email now; their analytics record is removed after.
 			$guest_email = 0 === $order->get_user_id() ? $order->get_billing_email() : '';
 		}
 
@@ -358,6 +371,7 @@ class WooCommerce extends Abstract_Integration implements Owns_Post_Types, Provi
 
 		$this->delete_guest_customer( $guest_email );
 
+		// delete() doesn't report failure, so confirm the order is gone.
 		return false === wc_get_order( $order_id );
 	}
 

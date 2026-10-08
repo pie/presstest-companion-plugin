@@ -314,6 +314,7 @@ class Sessions_Controller {
 	 * @return \WP_REST_Response
 	 */
 	public function preflight( \WP_REST_Request $request ): \WP_REST_Response {
+		// The integrations named in the request, or every active one if none.
 		$requested = array_filter( array_map( 'trim', explode( ',', (string) $request['integrations'] ) ), fn( string $slug ): bool => '' !== $slug );
 		$slugs     = array() !== $requested ? $requested : array_keys( $this->registry->active() );
 		$results   = array();
@@ -321,6 +322,8 @@ class Sessions_Controller {
 		foreach ( $slugs as $slug ) {
 			$integration = $this->registry->get( $slug );
 
+			// Unknown or inactive integrations can't be tested, so they fail
+			// with the reason (but raise no admin notice — the site is fine).
 			if ( null === $integration ) {
 				/* translators: %s: integration slug. */
 				$results[ $slug ] = $this->preflight_result( false, false, array( sprintf( __( 'Unknown integration "%s".', 'presstest-companion' ), $slug ) ) );
@@ -335,6 +338,7 @@ class Sessions_Controller {
 
 			$problems = $integration->preflight();
 
+			// Keep the admin notice in step: shown while unsafe, cleared once fixed.
 			if ( array() === $problems ) {
 				Notices::clear( $slug );
 			} else {
@@ -343,11 +347,13 @@ class Sessions_Controller {
 
 			$results[ $slug ] = $this->preflight_result( true, array() === $problems, $problems );
 
+			// Site details tests need, e.g. page URLs (see Provides_Test_Context).
 			if ( $integration instanceof Provides_Test_Context ) {
 				$results[ $slug ]['context'] = $integration->get_test_context();
 			}
 		}
 
+		// Ready only if every integration checked is ready.
 		$ready = array() === array_filter( $results, fn( array $result ): bool => false === $result['ready'] );
 
 		return rest_ensure_response(

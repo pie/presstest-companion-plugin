@@ -226,15 +226,18 @@ class WordPress extends Abstract_Integration {
 		$taxonomy = (string) ( $data['taxonomy'] ?? '' );
 		$term     = '' !== $taxonomy ? get_term( $term_id, $taxonomy ) : null;
 
+		// Already gone (or its taxonomy is no longer registered): nothing to do.
 		if ( ! $term instanceof \WP_Term ) {
 			return true;
 		}
 
+		// Everything still attached to the term.
 		$object_ids = array_map(
 			'intval',
 			$wpdb->get_col( $wpdb->prepare( "SELECT object_id FROM {$wpdb->term_relationships} WHERE term_taxonomy_id = %d", $term->term_taxonomy_id ) ) // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		);
 
+		// Nothing uses it any more, so it's safe to delete.
 		if ( array() === $object_ids ) {
 			return true === wp_delete_term( $term_id, $taxonomy );
 		}
@@ -245,14 +248,18 @@ class WordPress extends Abstract_Integration {
 		$object_types    = false !== $taxonomy_object ? (array) $taxonomy_object->object_type : array();
 		$record_types    = array();
 
+		// Attached to users: check against the session's user records.
 		if ( in_array( 'user', $object_types, true ) ) {
 			$record_types[] = 'user';
 		}
 
+		// Attached to any post type (or unknown): check against its post records.
 		if ( array() === $object_types || array() !== array_diff( $object_types, array( 'user' ) ) ) {
 			$record_types[] = 'post';
 		}
 
+		// Real data uses the term if any attached object isn't one of this
+		// session's outstanding records.
 		$repository        = new Session_Repository();
 		$used_by_real_data = array() !== array_filter(
 			$object_ids,
@@ -266,6 +273,8 @@ class WordPress extends Abstract_Integration {
 			}
 		);
 
+		// Keep it for good if real data uses it; otherwise wait for the session's
+		// own objects to be cleaned, then delete it on a later attempt.
 		return true === $used_by_real_data ? Cleaner::KEPT : Cleaner::DEFERRED;
 	}
 

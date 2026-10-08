@@ -343,15 +343,21 @@ class Session_Repository {
 		$sessions = Schema::sessions_table();
 		$objects  = Schema::objects_table();
 
+		// The most recent sessions, plus any older ones still holding data
+		// (an unfinished session can be in both lists, so de-duplicate).
 		$recent_ids = array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$sessions} ORDER BY id DESC LIMIT %d", $limit ) ) );
 		$ids        = array_values( array_unique( array_merge( $recent_ids, $this->unfinished_ids() ) ) );
 
+		// No sessions yet; an empty IN () would be invalid SQL.
 		if ( array() === $ids ) {
 			return array();
 		}
 
+		// One %d placeholder per ID, so every ID still goes through prepare().
 		$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );
 
+		// The LEFT JOIN counts each session's outstanding object records,
+		// including sessions with none.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT s.id, s.status, s.label, s.created_at, s.expires_at, s.ended_at, s.summary, COUNT( o.id ) AS object_count
@@ -363,6 +369,7 @@ class Session_Repository {
 			ARRAY_A
 		);
 
+		// $wpdb returns strings; give the REST response proper types.
 		return array_map(
 			function ( array $row ): array {
 				$row['id']           = (int) $row['id'];
