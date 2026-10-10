@@ -53,6 +53,7 @@ function enqueues_admin(): void {
 			'report_url'          => rest_url( 'presstest-companion/v1/report' ),
 			'report_token'        => get_option( 'presstest_companion_report_secret', '' ),
 			'user_settings'       => $user_meta,
+			'roles'               => get_role_options(),
 			'tests_run_message'   => __( 'Tests have been queued. Check your reports shortly.', 'presstest-companion' ),
 			'tests_error_message' => __( 'Failed to run tests. Please check the server settings.', 'presstest-companion' ),
 		)
@@ -66,4 +67,23 @@ function enqueues_admin(): void {
 	);
 
 	wp_enqueue_style( 'dashicons' );
+}
+
+/**
+ * Site roles as { value, label } pairs for the test data settings.
+ *
+ * @since 1.3.0
+ * @return array<int, array{value: string, label: string}>
+ */
+function get_role_options(): array {
+	$options = array();
+
+	foreach ( wp_roles()->get_names() as $slug => $name ) {
+		$options[] = array(
+			'value' => $slug,
+			'label' => translate_user_role( $name ),
+		);
+	}
+
+	return $options;
 }

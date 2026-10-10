@@ -135,6 +135,50 @@ function register_settings(): void {
 			),
 		)
 	);
+
+	// Test data: whether Presstest may create users, orders, etc. while
+	// testing, and which roles its test users may have. Administrator must be
+	// opted into explicitly — it is not in the default list.
+	register_setting(
+		'presstest_companion',
+		TestSessions\Test_Data_Settings::ENABLED_OPTION,
+		array(
+			'type'         => 'boolean',
+			'default'      => false,
+			'show_in_rest' => true,
+		)
+	);
+
+	register_setting(
+		'presstest_companion',
+		TestSessions\Test_Data_Settings::ROLES_OPTION,
+		array(
+			'type'              => 'array',
+			'default'           => TestSessions\Test_Data_Settings::DEFAULT_ROLES,
+			'sanitize_callback' => __NAMESPACE__ . '\sanitize_test_data_roles',
+			'show_in_rest'      => array(
+				'schema' => array(
+					'type'  => 'array',
+					'items' => array( 'type' => 'string' ),
+				),
+			),
+		)
+	);
+}
+
+/**
+ * Keeps only role slugs that exist on this site.
+ *
+ * @since 1.3.0
+ * @param mixed $roles Submitted role slugs.
+ * @return string[] Valid role slugs.
+ */
+function sanitize_test_data_roles( $roles ): array {
+	if ( ! is_array( $roles ) ) {
+		return array();
+	}
+
+	return array_values( array_filter( array_map( 'sanitize_key', $roles ), fn( string $role ): bool => null !== get_role( $role ) ) );
 }
 
 /**
