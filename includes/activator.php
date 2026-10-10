@@ -23,6 +23,7 @@ function activate(): void {
 	generate_report_secret();
 	require_once PRESSTEST_COMPANION_FILE_PATH . 'includes/cron.php';
 	sync_presstest_cron();
+	TestSessions\Bootstrap::activate();
 }
 
 /**

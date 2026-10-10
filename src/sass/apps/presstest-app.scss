@@ -21,9 +21,22 @@
                 flex: 2;
             }
 
-            label.fieldset-instruction {
+            label.fieldset-instruction,
+            legend.fieldset-instruction {
                 width: 100%;
                 font-weight: 600;
+                margin-bottom: 0.25rem;
+            }
+
+            // A legend sits in the fieldset's border area rather than its flex
+            // layout; float it so it takes the full width above the options.
+            legend.fieldset-instruction {
+                float: left;
+                padding: 0;
+            }
+
+            .checkbox-label--stacked {
+                width: 100%;
                 margin-bottom: 0.25rem;
             }
 
@@ -62,6 +75,10 @@
 
         h3 {
             margin-bottom: 0.5rem;
+        }
+
+        .test-sessions__table {
+            margin-top: 1rem;
         }
     }
 

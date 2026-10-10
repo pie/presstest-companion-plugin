@@ -56,3 +56,77 @@ export const tests = [
 ```
 
 After editing `tests.js`, deploy the plugin for the new suite to appear in the Run Tests tab.
+
+## Test data (logged-in testing)
+
+With **Settings > Test data > Allow Presstest to create test data** enabled, test runs can create users, posts, orders and memberships, log in as any allowed role, and check emails. Everything a run creates is removed when it finishes, leaving the site as it was found. Use this on staging sites.
+
+- **Roles**: test users may only have the roles ticked in the settings (subscriber and customer by default). Administrator must be ticked explicitly, for testing admin-only functionality.
+- **Emails** are never sent during a run. They are captured (even if a "disable emails" plugin is active) so tests can check the right ones would have gone out.
+- **Payments**: checkout tests stop, and an admin notice appears, if any enabled payment gateway isn't verifiably in test mode. During test runs, unverified gateways are also removed from checkout. If a gateway is in test mode but Presstest can't tell, confirm it with a filter:
+
+```php
+add_filter( 'presstest_companion_gateway_mode', function ( string $mode, WC_Payment_Gateway $gateway ): string {
+	return 'my_gateway' === $gateway->id && my_gateway_is_sandbox() ? 'test' : $mode;
+}, 10, 2 );
+```
+
+- **Cleanup** runs when the run ends and waits for any requests still in flight. Runs that were interrupted are cleaned up by an hourly scheduled task once their session expires (two hours after the run started, adjustable with the `presstest_companion_session_ttl` filter), and failed cleanups are retried the same way. WP-Cron only runs when the site gets traffic, so on a quiet site this can take longer — **Settings > Test sessions** lists recent runs and can remove all remaining test data immediately; deactivating the plugin does the same.
+
+### What is cleaned up
+
+| Integration | Removed after a run |
+|---|---|
+| WordPress | Users (and their term relationships), posts of any type, attachments and their files, comments, terms (kept if real content also uses them) |
+| WooCommerce | Orders (including checkout drafts and refunds) with stock, coupon usage and total sales restored, cart sessions, guest analytics records. Works with both HPOS and posts order storage |
+| Paid Memberships Pro | Orders, membership history, subscriptions, and discount code uses for test users |
+| Action Scheduler | One-off and async background jobs queued during the run, and their logs |
+
+Not reverted: edits to content that existed before the run, caches and transients, aggregate counters (e.g. PMPro's view and login counts), and anything already sent to an external service.
+
+### Supporting another plugin
+
+Each plugin is supported by one integration class in `includes/test-sessions/integrations/`. To support a new one, extend `Abstract_Integration`, override what you need, and register it:
+
+```php
+use PIE\PresstestCompanion\TestSessions\Integrations\Abstract_Integration;
+use PIE\PresstestCompanion\TestSessions\Tracker;
+
+class My_Plugin_Integration extends Abstract_Integration {
+	public function get_slug(): string { return 'my-plugin'; }
+	public function get_name(): string { return 'My Plugin'; }
+	public function is_active(): bool { return class_exists( 'My_Plugin' ); }
+
+	// Record what the plugin creates. Tracker::record() does nothing outside a test run.
+	public function register_hooks(): void {
+		add_action( 'my_plugin_booking_created', fn( int $id ) => Tracker::record( 'my_booking', $id ) );
+	}
+
+	// How to remove it. Lower priorities run first; return true once the object is gone.
+	public function get_cleanup_handlers(): array {
+		return array(
+			'my_booking' => array(
+				'priority' => 10,
+				'callback' => fn( int $id ): bool => my_plugin_delete_booking( $id ),
+			),
+		);
+	}
+
+	// Optional: problems that make the site unsafe to test (empty array = ready).
+	public function preflight(): array { return array(); }
+
+	// Optional: fixtures tests can request with presstest.create( 'my_booking', args ).
+	public function get_factories(): array { return array(); }
+}
+
+add_filter( 'presstest_companion_integrations', function ( array $integrations ): array {
+	$integrations[] = new My_Plugin_Integration();
+	return $integrations;
+} );
+```
+
+If the plugin stores its objects as posts (as WooCommerce does with posts-based order storage), also implement `Owns_Post_Types` and map those post types to your object type. The generic post cleanup then leaves them for your handler, even while your plugin is inactive, instead of deleting them before your cleanup has run.
+
+If tests need site-specific details — typically the plugin's configurable page URLs — also implement `Provides_Test_Context`. Whatever `get_test_context()` returns is included in the integration's preflight result, so tests get it from the `requireReady()` call they already make, rather than assuming addresses like `/checkout/`.
+
+See `class-woocommerce.php` and `class-paid-memberships-pro.php` for complete examples, including payment safety checks.
