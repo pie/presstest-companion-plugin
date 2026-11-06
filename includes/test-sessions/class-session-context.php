@@ -182,7 +182,12 @@ class Session_Context {
 		}
 
 		self::$counted = true;
-		// Shutdown functions run even after a fatal error.
+		// Shutdown functions run even after a fatal error, but not when PHP
+		// stops a request because the browser disconnected (a test moving on
+		// before a slow page or a 404 for a missing asset finishes). The count
+		// would then never be released, and cleanup would wait for requests
+		// that aren't running. So a session's requests always run to the end.
+		ignore_user_abort( true );
 		register_shutdown_function( array( self::class, 'release' ) );
 
 		return $session;
