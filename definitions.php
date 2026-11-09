@@ -7,7 +7,7 @@
  */
 
 if ( ! defined( 'PRESSTEST_COMPANION_VERSION' ) ) {
-	define( 'PRESSTEST_COMPANION_VERSION', '1.3.0' );
+	define( 'PRESSTEST_COMPANION_VERSION', '1.3.1' );
 }
 if ( ! defined( 'PRESSTEST_COMPANION_NAME' ) ) {
 	define( 'PRESSTEST_COMPANION_NAME', 'presstest-companion' );
